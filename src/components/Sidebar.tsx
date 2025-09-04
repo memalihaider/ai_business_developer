@@ -13,17 +13,20 @@ import {
   CreditCard,
   BarChart3,
   Settings,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Pacifico } from 'next/font/google';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useState } from 'react';
 
 const pacifico = Pacifico({
   subsets: ['latin'],
@@ -32,18 +35,51 @@ const pacifico = Pacifico({
 });
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' }, // 🏠
-  { icon: Users, label: 'Leads', href: '/leads' }, // 🔍
-  { icon: FileText, label: 'Proposals & Quotations', href: '/proposals' }, // 📑
-  { icon: Mail, label: 'Emails & Campaigns', href: '/emails' }, // ✉️
-  { icon: FolderKanban, label: 'Portfolio & Case Studies', href: '/portfolio' }, // 📂
-  { icon: Calendar, label: 'Social Content', href: '/social' }, // 📅
-  { icon: Kanban, label: 'CRM Pipeline', href: '/pipeline' }, // 📊
-  { icon: Globe, label: 'Opportunities', href: '/opportunities' }, // 🌐
-  { icon: Star, label: 'Reputation', href: '/reputation' }, // ⭐
-  { icon: CreditCard, label: 'Payments & Invoicing', href: '/payments' }, // 💳
-  { icon: BarChart3, label: 'Reports & Insights', href: '/reports' }, // 📈
-  { icon: Settings, label: 'Settings', href: '/settings' }, // ⚙️
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' }, 
+  { icon: Users, label: 'Leads', href: '/Lead' }, 
+  
+  { icon: FolderKanban, label: 'Portfolio & Case Studies', href: '/portfolio' }, 
+
+  { 
+    label: "Proposal & Quotation", 
+    icon: FileText,
+    href: "/proposals",
+    subItems:[
+      { label: "Proposal Builder", href: "/proposals/builder" },
+      { label: "Quotation Generator", href: "/proposals/quotation" },
+      { label: "Tracking & Analytics", href: "/proposals/tracking" },
+      { label: "Templates Library", href: "/proposals/templates" },
+    ]
+  },
+  { 
+    label: "Email & Follow-up", 
+    icon: Mail, 
+    href: "/email",
+    subItems: [
+      { label: "Email Composer", href: "/email/composer" },
+      { label: "Automated Sequences", href: "/email/sequences" },
+      { label: "Follow-up Scheduler", href: "/email/scheduler" },
+      { label: "Open & Click Tracking", href: "/email/tracking" },
+    ] 
+  },
+
+  { 
+  label: "Social Content", 
+  icon: Calendar, 
+  href: "/social-content-engine",
+  subItems: [
+    { label: "Analytics", href: "/social-content-engine/analytics" },
+    { label: "Content Ideas", href: "/social-content-engine/contentIdeas" },
+    { label: "Schedular", href: "/social-content-engine/scheduler" },
+    { label: "SEO SuggessionsS", href: "/social-content-engine/seoSuggestions" },
+  ]
+}, 
+  { icon: Kanban, label: 'CRM Pipeline', href: '/pipeline' }, 
+  { icon: Globe, label: 'Opportunities', href: '/opportunities' }, 
+  { icon: Star, label: 'Reputation', href: '/reputation' }, 
+  { icon: CreditCard, label: 'Payments & Invoicing', href: '/payments' }, 
+  { icon: BarChart3, label: 'Reports & Insights', href: '/reports' }, 
+  { icon: Settings, label: 'Settings', href: '/settings' }, 
 ];
 
 interface SidebarProps {
@@ -53,12 +89,19 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   const isMenuItemActive = (href: string) => {
     if (href === '/dashboard') {
       return pathname === '/' || pathname === '/dashboard';
     }
     return pathname.startsWith(href);
+  };
+
+  const toggleSubmenu = (href: string) => {
+    setOpenMenus((prev) =>
+      prev.includes(href) ? prev.filter((h) => h !== href) : [...prev, href]
+    );
   };
 
   return (
@@ -79,11 +122,6 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         'bg-white/95 dark:bg-black/85 backdrop-blur-sm',
         'border border-[#7A8063]/20 dark:border-[#7A8063]/10'
       )}
-      style={{
-        willChange: 'transform, width',
-        backfaceVisibility: 'hidden',
-        transformStyle: 'preserve-3d',
-      }}
     >
       {/* Content Container */}
       <div className="relative z-10 flex flex-col h-full px-2 py-6 items-center">
@@ -107,72 +145,113 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         {/* Navigation */}
         <div className="overflow-y-auto pr-1 flex-1 space-y-1 w-full">
           <nav className="flex flex-col space-y-1.5">
-            {navItems.map(({ icon: Icon, label, href }, index) => {
+            {navItems.map(({ icon: Icon, label, href, subItems }, index) => {
               const isActive = isMenuItemActive(href);
+              const isOpen = openMenus.includes(href);
 
               return (
-                <motion.div
-                  key={index}
-                  whileTap={{ scale: 0.97 }}
-                  transition={{ duration: 0.1 }}
-                >
+                <div key={index}>
                   <motion.div
-                    layout
-                    transition={{ duration: 0.15 }}
-                    onClick={() => router.push(href)}
-                    suppressHydrationWarning
-                    className={cn(
-                      'flex items-center px-2.5 py-1.5 rounded-xl cursor-pointer',
-                      collapsed && 'justify-center',
-                      isActive
-                        ? 'bg-[#7A8063]/20 text-[#7A8063] dark:bg-[#7A8063]/30 dark:text-[#7A8063]'
-                        : 'hover:bg-[#7A8055]/10 dark:hover:bg-[#7A8055]/20'
-                    )}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ duration: 0.1 }}
                   >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center justify-center">
-                          <Icon
+                    <motion.div
+                      layout
+                      transition={{ duration: 0.15 }}
+                      onClick={() =>
+                        subItems ? toggleSubmenu(href) : router.push(href)
+                      }
+                      suppressHydrationWarning
+                      className={cn(
+                        'flex items-center px-2.5 py-1.5 rounded-xl cursor-pointer',
+                        collapsed && 'justify-center',
+                        isActive
+                          ? 'bg-[#7A8063]/20 text-[#7A8063] dark:bg-[#7A8063]/30 dark:text-[#7A8063]'
+                          : 'hover:bg-[#7A8055]/10 dark:hover:bg-[#7A8055]/20'
+                      )}
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center justify-center">
+                            <Icon
+                              className={cn(
+                                'w-3.5 h-3.5',
+                                isActive
+                                  ? 'text-[#7A8063] dark:text-[#7A8063]'
+                                  : 'text-[#7A8063] dark:text-[#7A8055]'
+                              )}
+                            />
+                          </div>
+                        </TooltipTrigger>
+                        {collapsed && (
+                          <TooltipContent
+                            side="right"
+                            className="bg-white dark:bg-gray-900 border border-[#7A8063]/20 shadow-lg"
+                          >
+                            <span>{label}</span>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+
+                      {!collapsed && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="flex items-center justify-between w-full ml-3"
+                        >
+                          <span
                             className={cn(
-                              'w-3.5 h-3.5',
+                              'text-[10px] font-medium',
                               isActive
                                 ? 'text-[#7A8063] dark:text-[#7A8063]'
-                                : 'text-[#7A8063] dark:text-[#7A8055]'
+                                : 'text-gray-700 dark:text-gray-300'
                             )}
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      {collapsed && (
-                        <TooltipContent
-                          side="right"
-                          className="bg-white dark:bg-gray-900 border border-[#7A8063]/20 shadow-lg"
-                        >
-                          <span>{label}</span>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
+                          >
+                            {label}
+                          </span>
 
-                    {!collapsed && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="flex items-center justify-between w-full ml-3"
-                      >
-                        <span
-                          className={cn(
-                            'text-[10px] font-medium',
-                            isActive
-                              ? 'text-[#7A8063] dark:text-[#7A8063]'
-                              : 'text-gray-700 dark:text-gray-300'
+                          {subItems && (
+                            <span>
+                              {isOpen ? (
+                                <ChevronDown size={14} />
+                              ) : (
+                                <ChevronRight size={14} />
+                              )}
+                            </span>
                           )}
-                        >
-                          {label}
-                        </span>
-                      </motion.div>
-                    )}
+                        </motion.div>
+                      )}
+                    </motion.div>
                   </motion.div>
-                </motion.div>
+
+                  {/* Submenu */}
+                  <AnimatePresence>
+                    {!collapsed && subItems && isOpen && (
+                      <motion.ul
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="ml-8 mt-1 space-y-1 overflow-hidden"
+                      >
+                        {subItems.map((sub, i) => (
+                          <li
+                            key={i}
+                            onClick={() => router.push(sub.href)}
+                            className={cn(
+                              'px-2 py-1 text-[10px] rounded-md cursor-pointer',
+                              pathname === sub.href
+                                ? 'bg-[#7A8063]/20 text-[#7A8063]'
+                                : 'hover:bg-[#7A8055]/10 dark:hover:bg-[#7A8055]/20 text-gray-600 dark:text-gray-400'
+                            )}
+                          >
+                            {sub.label}
+                          </li>
+                        ))}
+                      </motion.ul>
+                    )}
+                  </AnimatePresence>
+                </div>
               );
             })}
           </nav>

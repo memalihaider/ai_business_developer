@@ -36,12 +36,32 @@ export default function Header({ onToggle, collapsed }: HeaderProps) {
         document.documentElement.classList.toggle("dark", isDark);
     }, []);
 
-    const toggleTheme = () => {
-        const newMode = !darkMode;
-        setDarkMode(newMode);
-        localStorage.setItem("theme", newMode ? "dark" : "light");
-        document.documentElement.classList.toggle("dark", newMode);
-    };
+   // Define available themes
+const themes = [
+  { id: "light", label: "Light", color: "bg-white border" },
+  { id: "dark", label: "Dark", color: "bg-black" },
+  { id: "emerald", label: "Emerald", color: "bg-emerald-600" },
+  { id: "rose", label: "Rose", color: "bg-rose-600" },
+  { id: "blue", label: "Blue", color: "bg-blue-600" },
+  { id: "amber", label: "Amber", color: "bg-amber-500" },
+];
+
+const [currentTheme, setCurrentTheme] = useState("light");
+const [showThemeMenu, setShowThemeMenu] = useState(false);
+
+useEffect(() => {
+  const saved = localStorage.getItem("theme") || "light";
+  setCurrentTheme(saved);
+  applyTheme(saved);
+}, []);
+
+const applyTheme = (theme: string) => {
+  document.documentElement.className = ""; // reset all theme classes
+  document.documentElement.classList.add(theme);
+  localStorage.setItem("theme", theme);
+  setCurrentTheme(theme);
+};
+
 
     // Handle scroll effect
     useEffect(() => {
@@ -177,43 +197,57 @@ export default function Header({ onToggle, collapsed }: HeaderProps) {
                                     </p>
                                     <p className="text-xs text-[#7A8063] dark:text-[#7A8063] mt-1">
                                         15 minutes ago
-                                    </p>
+                                     </p>
                                 </div>
                             </div>
                         </motion.div>
                     )}
                 </div>
 
-                {/* Theme Toggle */}
-                <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={toggleTheme}
-                    className="p-2 rounded-lg bg-gradient-to-r from-[#7A8063]/10 to-[#7A8063]/5 dark:from-[#7A8063]/20 dark:to-[#7A8063]/10 hover:from-[#7A8055]/20 hover:to-[#7A8055]/10 dark:hover:from-[#7A8055]/30 dark:hover:to-[#7A8055]/20 transition-all duration-300 shadow-sm hover:shadow-md border border-[#7A8063]/10 dark:border-[#7A8063]/20"
-                >
-                    {darkMode ? (
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-3.5 h-3.5 text-yellow-400"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                        >
-                            <path d="M12 2a1 1 0 0 1 1 1v1.26a9 9 0 1 1-2 0V3a1 1 0 0 1 1-1z" />
-                        </svg>
-                    ) : (
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-3.5 h-3.5 text-gray-700 dark:text-gray-300"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                        >
-                            <circle cx="12" cy="12" r="5" />
-                            <path d="M12 1v2m0 18v2m9-9h-2M5 12H3m15.54 6.36l-1.41-1.41M6.34 6.34L4.93 4.93m0 14.14 1.41-1.41m12.02-12.02-1.41 1.41" />
-                        </svg>
-                    )}
-                </motion.button>
+               {/* Theme Selector */}
+<div className="relative">
+  <motion.button
+    whileHover={{ scale: 1.1 }}
+    whileTap={{ scale: 0.95 }}
+    onClick={() => setShowThemeMenu(!showThemeMenu)}
+    className="p-2 rounded-lg bg-gradient-to-r from-[#7A8063]/10 
+               to-[#7A8063]/5 dark:from-[#7A8063]/20 dark:to-[#7A8063]/10 
+               hover:from-[#7A8055]/20 hover:to-[#7A8055]/10 
+               dark:hover:from-[#7A8055]/30 dark:hover:to-[#7A8055]/20 
+               transition-all duration-300 shadow-sm hover:shadow-md 
+               border border-[#7A8063]/10 dark:border-[#7A8063]/20"
+  >
+    🎨
+  </motion.button>
+
+  {showThemeMenu && (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="absolute right-0 mt-2 w-40 bg-white/95 dark:bg-gray-900/95 
+                 backdrop-blur-md rounded-xl shadow-lg border 
+                 border-[#7A8063]/30 dark:border-[#7A8063]/30 z-50 p-2"
+    >
+      <div className="grid grid-cols-3 gap-2">
+        {themes.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => {
+              applyTheme(t.id);
+              setShowThemeMenu(false);
+            }}
+            className={`h-8 w-8 rounded-full border-2 flex items-center justify-center ${t.color} ${
+              currentTheme === t.id ? "ring-2 ring-[#7A8063]" : ""
+            }`}
+            title={t.label}
+          />
+        ))}
+      </div>
+    </motion.div>
+  )}
+</div>
+
 
                 {/* User Profile */}
                 <div className="flex items-center space-x-3">
