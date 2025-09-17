@@ -1,242 +1,485 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Mail, Users, Clock, Send, Plus, Trash2, Play, Pause, CheckCircle2, Circle, Calendar, Target } from "lucide-react";
 
-type FollowUp = {
-  id: number;
-  recipient: string;
-  subject: string;
-  body: string;
-  date: string;
-  time: string;
-  status: "Pending" | "Sent";
+type Lead = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  company?: string;
+  phone?: string;
+  status: "active" | "inactive" | "unsubscribed";
+  createdAt: string;
+  lastContact?: string;
 };
 
-export default function FollowUpScheduler() {
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [message, setMessage] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    recipient: "",
-    subject: "",
-    body: "",
-    date: "",
-    time: "",
-  });
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [loadingAI, setLoadingAI] = useState(false);
+type EmailSequence = {
+  id: string;
+  name: string;
+  subject: string;
+  content: string;
+  dayInterval: number;
+  isActive: boolean;
+};
 
-  const handleAddOrEdit = () => {
-    if (!formData.recipient || !formData.subject || !formData.body || !formData.date || !formData.time) {
-      setMessage("⚠️ Please fill all fields.");
+type ScheduledEmail = {
+  id: string;
+  leadId: string;
+  sequenceId: string;
+  scheduledDate: string;
+  status: "pending" | "sent" | "failed";
+  sentAt?: string;
+};
+
+export default function EmailFollowupsPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [sequences, setSequences] = useState<EmailSequence[]>([]);
+  const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
+  const [activeTab, setActiveTab] = useState<"leads" | "sequences" | "scheduled">("leads");
+  const [showCreateSequence, setShowCreateSequence] = useState(false);
+  const [newSequence, setNewSequence] = useState({
+    name: "",
+    subject: "",
+    content: "",
+    dayInterval: 3
+  });
+
+  // Fetch leads from database
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        const response = await fetch('/api/contacts');
+        if (response.ok) {
+          const data = await response.json();
+          setLeads(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching leads:', error);
+      }
+    };
+
+    const fetchSequences = async () => {
+      // Email sequences functionality has been removed
+      setSequences([]);
+    };
+
+    const fetchScheduledEmails = async () => {
+      try {
+        const response = await fetch('/api/scheduled-emails');
+        if (response.ok) {
+          const data = await response.json();
+          setScheduledEmails(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching scheduled emails:', error);
+      }
+    };
+
+    fetchLeads();
+    fetchSequences();
+    fetchScheduledEmails();
+
+    // Set up real-time updates every 30 seconds
+    const interval = setInterval(() => {
+      fetchLeads();
+      fetchScheduledEmails();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLeadSelection = (leadId: string) => {
+    setSelectedLeads(prev => 
+      prev.includes(leadId) 
+        ? prev.filter(id => id !== leadId)
+        : [...prev, leadId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLeads.length === leads.length) {
+      setSelectedLeads([]);
+    } else {
+      setSelectedLeads(leads.map(lead => lead.id));
+    }
+  };
+
+  const handleCreateSequence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    alert('Email sequences functionality has been removed');
+  };
+
+  const handleScheduleEmails = async (sequenceId: string) => {
+    if (selectedLeads.length === 0) {
+      alert('Please select leads first');
       return;
     }
 
-    if (editingId !== null) {
-      setFollowUps((prev) =>
-        prev.map((f) => (f.id === editingId ? { ...f, ...formData } : f))
-      );
-      setMessage("✅ Follow-up updated successfully!");
-    } else {
-      const newFollowUp: FollowUp = { id: Date.now(), status: "Pending", ...formData };
-      setFollowUps((prev) => [...prev, newFollowUp]);
-      setMessage("✅ Follow-up scheduled successfully!");
-    }
-
-    setFormData({ recipient: "", subject: "", body: "", date: "", time: "" });
-    setShowForm(false);
-    setEditingId(null);
-  };
-
-  const handleDelete = (id: number) => {
-    setFollowUps((prev) => prev.filter((f) => f.id !== id));
-    setMessage("🗑️ Follow-up deleted successfully!");
-  };
-
-  const handleEdit = (f: FollowUp) => {
-    setFormData({ ...f });
-    setEditingId(f.id);
-    setShowForm(true);
-  };
-
-  const markAsSent = (id: number) => {
-    setFollowUps((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status: "Sent" } : f))
-    );
-    setMessage("📨 Follow-up marked as sent!");
-  };
-
-  // 🧠 AI Suggestion for scheduling
-  const handleAISchedule = async () => {
-    setLoadingAI(true);
-    setMessage("");
-
     try {
-      // 👉 Replace this with real AI backend later
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const response = await fetch('/api/schedule-emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          leadIds: selectedLeads,
+          sequenceId: sequenceId
+        }),
+      });
 
-      const today = new Date();
-      today.setDate(today.getDate() + Math.floor(Math.random() * 5) + 1);
-      const suggestedDate = today.toISOString().split("T")[0];
-      const suggestedTime = "10:00";
-
-      setFormData((prev) => ({
-        ...prev,
-        date: suggestedDate,
-        time: suggestedTime,
-      }));
-
-      setMessage("🤖 AI suggested a schedule for you!");
-    } catch {
-      setMessage("❌ AI scheduling failed. Try again.");
-    } finally {
-      setLoadingAI(false);
+      if (response.ok) {
+        const newScheduledEmails = await response.json();
+        setScheduledEmails(prev => [...prev, ...newScheduledEmails]);
+        setSelectedLeads([]);
+        alert(`Scheduled emails for ${selectedLeads.length} leads`);
+      }
+    } catch (error) {
+      console.error('Error scheduling emails:', error);
     }
   };
+
+  const handleDeleteSequence = async (sequenceId: string) => {
+    alert('Email sequences functionality has been removed');
+  };
+
+  const toggleSequenceStatus = async (sequenceId: string, isActive: boolean) => {
+    alert('Email sequences functionality has been removed');
+  };
+
+
 
   return (
-    <div className="min-h-screen p-6 bg-white text-black">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold">⏰ AI-Powered Follow-up Scheduler</h1>
-      </header>
-
-      {/* Message Banner */}
-      {message && (
-        <div className="mb-4 p-3 rounded-lg text-sm bg-yellow-100 text-yellow-800 shadow-sm">
-          {message}
-        </div>
-      )}
-
-      {/* Add/Edit Form */}
-      {showForm && (
-        <div className="p-5 mb-6 rounded-xl shadow-md bg-white text-sm border">
-          <h2 className="text-base font-semibold mb-4">
-            {editingId !== null ? "Edit Follow-up" : "Schedule Follow-up"}
-          </h2>
-          <div className="mb-3">
-            <label className="block mb-1 text-xs font-medium">Recipient *</label>
-            <input
-              className="w-full p-2 rounded border text-sm"
-              value={formData.recipient}
-              onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="block mb-1 text-xs font-medium">Subject *</label>
-            <input
-              className="w-full p-2 rounded border text-sm"
-              value={formData.subject}
-              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="block mb-1 text-xs font-medium">Body *</label>
-            <textarea
-              className="w-full p-2 rounded border text-sm"
-              value={formData.body}
-              onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-            />
-          </div>
-          <div className="mb-4 flex gap-4 items-end">
-            <div>
-              <label className="block mb-1 text-xs font-medium">Date *</label>
-              <input
-                type="date"
-                className="p-2 rounded border text-sm"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              />
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Mail className="h-8 w-8 text-blue-600" />
+              <h1 className="text-2xl font-semibold text-gray-900">Email Follow-ups</h1>
             </div>
-            <div>
-              <label className="block mb-1 text-xs font-medium">Time *</label>
-              <input
-                type="time"
-                className="p-2 rounded border text-sm"
-                value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-              />
-            </div>
-            <button
-              onClick={handleAISchedule}
-              disabled={loadingAI}
-              className="px-3 py-2 rounded-md bg-[#7A8063] text-white text-xs hover:bg-[#6A704F] transition flex items-center gap-2"
-            >
-              {loadingAI && (
-                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              )}
-              {loadingAI ? "AI Scheduling..." : "AI Suggest"}
-            </button>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleAddOrEdit}
-              className="px-3 py-1.5 rounded-md bg-[#7A8063] text-white text-sm hover:bg-[#6A704F] transition"
-            >
-              {editingId !== null ? "Update" : "Schedule"}
-            </button>
-            <button
-              onClick={() => {
-                setShowForm(false);
-                setFormData({ recipient: "", subject: "", body: "", date: "", time: "" });
-                setEditingId(null);
-              }}
-              className="px-3 py-1.5 rounded-md bg-gray-400 text-white text-sm hover:bg-gray-500 transition"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Add New Follow-up Button */}
-      {!showForm && (
-        <div className="mb-6">
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-3 py-1.5 rounded-md bg-[#7A8063] text-white text-sm hover:bg-[#6A704F] transition"
-          >
-            + Schedule Follow-up
-          </button>
-        </div>
-      )}
-
-      {/* Follow-ups List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {followUps.map((f) => (
-          <div
-            key={f.id}
-            className="p-5 rounded-xl shadow-md bg-white text-sm border"
-          >
-            <h2 className="text-base font-semibold mb-2">{f.subject}</h2>
-            <p className="mb-1"><span className="font-medium">Recipient:</span> {f.recipient}</p>
-            <p className="mb-1"><span className="font-medium">Scheduled:</span> {f.date} {f.time}</p>
-            <p className="mb-3"><span className="font-medium">Status:</span> {f.status}</p>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-500">
+                {selectedLeads.length} leads selected
+              </span>
               <button
-                onClick={() => handleEdit(f)}
-                className="px-3 py-1 rounded-md bg-[#7A8063] text-white text-sm hover:bg-[#6A704F] transition"
+                onClick={() => setShowCreateSequence(true)}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Edit
+                <Plus className="h-4 w-4 mr-2" />
+                New Sequence
               </button>
-              <button
-                onClick={() => handleDelete(f.id)}
-                className="px-3 py-1 rounded-md bg-red-500 text-white text-sm hover:bg-red-600 transition"
-              >
-                Delete
-              </button>
-              {f.status === "Pending" && (
-                <button
-                  onClick={() => markAsSent(f.id)}
-                  className="px-3 py-1 rounded-md bg-green-600 text-white text-sm hover:bg-green-700 transition"
-                >
-                  Mark as Sent
-                </button>
-              )}
             </div>
           </div>
-        ))}
+        </div>
       </div>
+
+      {/* Navigation Tabs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            {[
+              { key: "leads", label: "Leads", icon: Users },
+              { key: "sequences", label: "Email Sequences", icon: Mail },
+              { key: "scheduled", label: "Scheduled Emails", icon: Clock }
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key as any)}
+                className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === key
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {activeTab === "leads" && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium text-gray-900">Lead Management</h2>
+                <button
+                  onClick={handleSelectAll}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  {selectedLeads.length === leads.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+            </div>
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Select
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Company
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {leads.map((lead) => (
+                    <tr key={lead.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleLeadSelection(lead.id)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          {selectedLeads.includes(lead.id) ? (
+                            <CheckCircle2 className="h-5 w-5" />
+                          ) : (
+                            <Circle className="h-5 w-5" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {lead.firstName} {lead.lastName}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{lead.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{lead.company || "-"}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          lead.status === "active" 
+                            ? "bg-green-100 text-green-800"
+                            : lead.status === "inactive"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
+                        }`}>
+                          {lead.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(lead.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "sequences" && (
+          <div className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {sequences.map((sequence) => (
+                <div key={sequence.id} className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">{sequence.name}</h3>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => toggleSequenceStatus(sequence.id, sequence.isActive)}
+                        className={`p-1 rounded ${
+                          sequence.isActive ? "text-green-600 hover:bg-green-50" : "text-gray-400 hover:bg-gray-50"
+                        }`}
+                      >
+                        {sequence.isActive ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSequence(sequence.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2 mb-4">
+                    <p className="text-sm text-gray-600"><strong>Subject:</strong> {sequence.subject}</p>
+                    <p className="text-sm text-gray-600"><strong>Interval:</strong> {sequence.dayInterval} days</p>
+                    <p className="text-sm text-gray-600 line-clamp-3">{sequence.content}</p>
+                  </div>
+                  <button
+                    onClick={() => handleScheduleEmails(sequence.id)}
+                    disabled={selectedLeads.length === 0 || !sequence.isActive}
+                    className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Schedule for Selected Leads
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "scheduled" && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">Scheduled Emails</h2>
+            </div>
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Lead
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Sequence
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Scheduled Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Sent At
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {scheduledEmails.map((email) => {
+                    const lead = leads.find(l => l.id === email.leadId);
+                    const sequence = sequences.find(s => s.id === email.sequenceId);
+                    return (
+                      <tr key={email.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {lead ? `${lead.firstName} ${lead.lastName}` : "Unknown Lead"}
+                          </div>
+                          <div className="text-sm text-gray-500">{lead?.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{sequence?.name || "Unknown Sequence"}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(email.scheduledDate).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            email.status === "sent" 
+                              ? "bg-green-100 text-green-800"
+                              : email.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                          }`}>
+                            {email.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {email.sentAt ? new Date(email.sentAt).toLocaleString() : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create Sequence Modal */}
+      {showCreateSequence && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Create Email Sequence</h3>
+            <form onSubmit={handleCreateSequence} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Sequence Name
+                </label>
+                <input
+                  type="text"
+                  value={newSequence.name}
+                  onChange={(e) => setNewSequence({ ...newSequence, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Subject
+                </label>
+                <input
+                  type="text"
+                  value={newSequence.subject}
+                  onChange={(e) => setNewSequence({ ...newSequence, subject: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Content
+                </label>
+                <textarea
+                  value={newSequence.content}
+                  onChange={(e) => setNewSequence({ ...newSequence, content: e.target.value })}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Send Interval (days)
+                </label>
+                <select
+                  value={newSequence.dayInterval}
+                  onChange={(e) => setNewSequence({ ...newSequence, dayInterval: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value={1}>1 day</option>
+                  <option value={2}>2 days</option>
+                  <option value={3}>3 days</option>
+                  <option value={4}>4 days</option>
+                  <option value={5}>5 days</option>
+                  <option value={7}>1 week</option>
+                  <option value={14}>2 weeks</option>
+                </select>
+              </div>
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateSequence(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >
+                  Create Sequence
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

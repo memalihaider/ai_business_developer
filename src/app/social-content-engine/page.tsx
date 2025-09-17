@@ -32,11 +32,6 @@ export const SocialContentEngine: React.FC = () => {
       desc: "Boost rankings with AI-powered SEO insights.",
     },
     {
-      id: "scheduler",
-      title: "Scheduler",
-      desc: "Plan, automate, and manage posts effortlessly.",
-    },
-    {
       id: "analytics",
       title: "Analytics",
       desc: "Track engagement, ROI, and performance in real-time.",

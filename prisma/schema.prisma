@@ -1,0 +1,1204 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  company   String?
+  value     String?
+  status    String   @default("New")
+  owner     String?
+  priority  String   @default("Medium")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  proposals Proposal[]
+  clients   Client[]
+  quotations Quotation[]
+  sequenceRuns SequenceRun[]
+  deals     Deal[]
+
+  @@map("leads")
+}
+
+model CaseStudy {
+  id        String   @id @default(cuid())
+  title     String
+  client    String
+  industry  String
+  summary   String
+  problem   String?
+  solution  String?
+  results   String?
+  cover     String?
+  tags      String   // JSON array as string
+  metrics   String?  // JSON array as string
+  techStack String?
+  googleDocLink String?
+  draft     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("case_studies")
+}
+
+model Proposal {
+  id          String   @id @default(cuid())
+  title       String
+  clientName  String
+  clientEmail String?
+  clientPhone String?
+  description String
+  timeline    String?
+  budget      String?
+  type        String   @default("service") // service, quotation, contract
+  status      String   @default("draft") // draft, sent, accepted, rejected
+  content     String?  // Generated AI content
+  sections    String?  // JSON array of custom sections
+  templateId  String?
+  leadId      String?
+  isDraft     Boolean  @default(true)
+  sentAt      DateTime?
+  viewedAt    DateTime?
+  acceptedAt  DateTime?
+  rejectedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  template    ProposalTemplate? @relation(fields: [templateId], references: [id])
+  lead        Lead?            @relation(fields: [leadId], references: [id])
+  analytics   ProposalAnalytics[]
+  collaborators ProposalCollaborator[]
+
+  @@map("proposals")
+}
+
+model ProposalTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   // business, freelancer, project, etc.
+  category    String   // proposal, quotation, invoice, email
+  content     String   // Template content with placeholders
+  sections    String   // JSON array of template sections
+  tags        String?  // JSON array of tags as string
+  isPublic    Boolean  @default(false)
+  isPopular   Boolean  @default(false)
+  usageCount  Int      @default(0)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  proposals   Proposal[]
+
+  @@map("proposal_templates")
+}
+
+model ProposalAnalytics {
+  id         String   @id @default(cuid())
+  proposalId String
+  event      String   // viewed, downloaded, shared, accepted, rejected
+  metadata   String?  // JSON data for additional info
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  // Relations
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@map("proposal_analytics")
+}
+
+model ProposalCollaborator {
+  id         String   @id @default(cuid())
+  proposalId String
+  email      String
+  role       String   @default("viewer") // viewer, editor, owner
+  invitedAt  DateTime @default(now())
+  joinedAt   DateTime?
+  isActive   Boolean  @default(true)
+
+  // Relations
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, email])
+  @@map("proposal_collaborators")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  company   String?
+  address   String?
+  industry  String?
+  notes     String?
+  tags      String?  // JSON array as string
+  leadId    String?  // Reference to lead if converted
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  lead      Lead?      @relation(fields: [leadId], references: [id])
+  quotations Quotation[]
+
+  @@map("clients")
+}
+
+model Quotation {
+  id          String   @id @default(cuid())
+  quotationNumber String @unique
+  title       String
+  clientId    String
+  clientName  String
+  clientEmail String?
+  clientPhone String?
+  clientAddress String?
+  description String?
+  status      String   @default("draft") // draft, sent, accepted, rejected, expired
+  validUntil  DateTime?
+  subtotal    Float    @default(0)
+  taxRate     Float    @default(0)
+  taxAmount   Float    @default(0)
+  discount    Float    @default(0)
+  total       Float    @default(0)
+  currency    String   @default("USD")
+  notes       String?
+  terms       String?
+  paymentTerms String?
+  leadId      String?
+  templateId  String?
+  sentAt      DateTime?
+  viewedAt    DateTime?
+  acceptedAt  DateTime?
+  rejectedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  client      Client            @relation(fields: [clientId], references: [id])
+  lead        Lead?             @relation(fields: [leadId], references: [id])
+  template    QuotationTemplate? @relation(fields: [templateId], references: [id])
+  items       QuotationItem[]
+  analytics   QuotationAnalytics[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String  @id @default(cuid())
+  quotationId String
+  name        String
+  description String?
+  quantity    Float   @default(1)
+  unitPrice   Float   @default(0)
+  total       Float   @default(0)
+  category    String?
+  order       Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@map("quotation_items")
+}
+
+model QuotationTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String   // service, product, consulting, etc.
+  content     String   // Template content with placeholders
+  items       String   // JSON array of default items
+  terms       String?  // Default terms and conditions
+  paymentTerms String? // Default payment terms
+  taxRate     Float    @default(0)
+  currency    String   @default("USD")
+  isPublic    Boolean  @default(false)
+  isPopular   Boolean  @default(false)
+  usageCount  Int      @default(0)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  quotations  Quotation[]
+
+  @@map("quotation_templates")
+}
+
+model QuotationAnalytics {
+  id          String   @id @default(cuid())
+  quotationId String
+  event       String   // viewed, downloaded, shared, accepted, rejected
+  metadata    String?  // JSON data for additional info
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@map("quotation_analytics")
+}
+
+model Sequence {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String   @default("general") // general, sales, onboarding, nurture, etc.
+  trigger     String?  // What triggers this sequence
+  isActive    Boolean  @default(true)
+  totalSteps  Int      @default(0)
+  completedRuns Int    @default(0)
+  successRate Float?   // Percentage of successful completions
+  tags        String?  // JSON array as string
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  steps       SequenceStep[]
+  runs        SequenceRun[]
+  followUpSteps FollowUpStep[]
+
+  @@map("sequences")
+}
+
+model SequenceStep {
+  id          String   @id @default(cuid())
+  sequenceId  String
+  name        String
+  description String?
+  type        String   // email, sms, call, task, wait, condition
+  content     String?  // Email content, SMS text, task description, etc.
+  subject     String?  // For email steps
+  delay       Int      @default(0) // Delay in hours before this step
+  order       Int      // Order of execution
+  conditions  String?  // JSON conditions for execution
+  settings    String?  // JSON settings specific to step type
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  sequence    Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  executions  SequenceStepExecution[]
+
+  @@map("sequence_steps")
+}
+
+model SequenceRun {
+  id          String   @id @default(cuid())
+  sequenceId  String
+  leadId      String?
+  contactId   String?  // Reference to contact/lead
+  contactEmail String
+  contactName String?
+  status      String   @default("active") // active, completed, paused, failed
+  currentStep Int      @default(0)
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  pausedAt    DateTime?
+  nextStepAt  DateTime?
+  data        String?  // JSON data for personalization
+  metadata    String?  // JSON metadata
+
+  // Relations
+  sequence    Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  executions  SequenceStepExecution[]
+
+  @@map("sequence_runs")
+}
+
+model SequenceStepExecution {
+  id          String   @id @default(cuid())
+  runId       String
+  stepId      String
+  status      String   @default("pending") // pending, executing, completed, failed, skipped
+  scheduledAt DateTime?
+  executedAt  DateTime?
+  completedAt DateTime?
+  error       String?
+  result      String?  // JSON result data
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+
+  // Relations
+  run         SequenceRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  step        SequenceStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, stepId])
+  @@map("sequence_step_executions")
+}
+
+// Email Template Model
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  subject     String
+  htmlContent String
+  textContent String?
+  category    String   @default("general") // general, sales, marketing, transactional
+  tags        String?  // JSON array as string
+  variables   String?  // JSON array of template variables
+  thumbnail   String?
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  followUpSteps FollowUpStep[]
+  campaigns     Campaign[]
+  usageStats    TemplateUsage[]
+  abTestsA      ABTest[] @relation("TemplateA")
+  abTestsB      ABTest[] @relation("TemplateB")
+
+  @@map("email_templates")
+}
+
+// Contact Model
+model Contact {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  firstName   String?
+  lastName    String?
+  company     String?
+  phone       String?
+  jobTitle    String?
+  industry    String?
+  location    String?
+  timezone    String?
+  tags        String?  // JSON array as string
+  customFields String? // JSON object for custom fields
+  source      String?  // Where the contact came from
+  status      String   @default("active") // active, unsubscribed, bounced, complained
+  leadScore   Int      @default(0)
+  lastEngaged DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  sequenceRuns    SequenceRun[]
+  campaignContacts CampaignContact[]
+  emailEvents     EmailEvent[]
+  scheduledEmails ScheduledEmail[]
+  emailOpens      EmailOpen[]
+  emailClicks     EmailClick[]
+  socialShares    SocialShare[]
+  linkClicks      LinkClick[]
+  deals           Deal[]
+
+  @@map("contacts")
+}
+
+// Deal Model for Pipeline
+model Deal {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  value       Float    @default(0)
+  currency    String   @default("USD")
+  stage       String   @default("lead") // lead, qualified, proposal, negotiation, closed-won, closed-lost
+  priority    String   @default("medium") // low, medium, high, urgent
+  probability Int      @default(0) // 0-100
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  source      String?  // Where the deal came from
+  tags        String?  // JSON array as string
+  notes       String?
+  customFields String? // JSON object for custom fields
+  
+  // Contact relationship
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  
+  // Lead relationship
+  leadId      String?
+  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Activities and history
+  activities  DealActivity[]
+  
+  @@map("deals")
+}
+
+// Deal Activity Model for tracking pipeline changes
+model DealActivity {
+  id          String   @id @default(cuid())
+  dealId      String
+  type        String   // stage_change, note_added, value_updated, etc.
+  description String
+  oldValue    String?
+  newValue    String?
+  metadata    String?  // JSON metadata
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  
+  @@map("deal_activities")
+}
+
+// Campaign Model
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   @default("email") // email, sms, mixed
+  status      String   @default("draft") // draft, active, paused, completed, archived
+  templateId  String?
+  segmentRules String? // JSON rules for contact segmentation
+  settings    String?  // JSON campaign settings
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  totalContacts Int    @default(0)
+  sentCount   Int      @default(0)
+  deliveredCount Int   @default(0)
+  openedCount Int      @default(0)
+  clickedCount Int     @default(0)
+  unsubscribedCount Int @default(0)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  template    EmailTemplate? @relation(fields: [templateId], references: [id])
+  contacts    CampaignContact[]
+  steps       CampaignStep[]
+  analytics   CampaignAnalytics[]
+
+  @@map("campaigns")
+}
+
+// Campaign Contact Junction
+model CampaignContact {
+  id         String   @id @default(cuid())
+  campaignId String
+  contactId  String
+  status     String   @default("pending") // pending, sent, delivered, opened, clicked, bounced, unsubscribed
+  sentAt     DateTime?
+  deliveredAt DateTime?
+  openedAt   DateTime?
+  clickedAt  DateTime?
+  unsubscribedAt DateTime?
+  bouncedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, contactId])
+  @@map("campaign_contacts")
+}
+
+// Campaign Step Model
+model CampaignStep {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  type        String   // email, wait, condition, action
+  order       Int
+  templateId  String?
+  delay       Int      @default(0) // Delay in hours
+  conditions  String?  // JSON conditions
+  settings    String?  // JSON step settings
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_steps")
+}
+
+// Follow-up Step Model (Enhanced)
+model FollowUpStep {
+  id          String   @id @default(cuid())
+  sequenceId  String
+  templateId  String?
+  name        String
+  subject     String?
+  content     String?
+  delay       Int      @default(0) // Delay in hours
+  order       Int
+  conditions  String?  // JSON conditions for execution
+  settings    String?  // JSON settings
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  sequence    Sequence      @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  template    EmailTemplate? @relation(fields: [templateId], references: [id])
+
+  @@map("follow_up_steps")
+}
+
+// Scheduled Email Model
+model ScheduledEmail {
+  id          String   @id @default(cuid())
+  contactId   String
+  enrollmentId String?
+  stepId      String?
+  campaignId  String?
+  templateId  String?
+  subject     String
+  content     String
+  scheduledAt DateTime
+  sentAt      DateTime?
+  status      String   @default("scheduled") // scheduled, sent, failed, cancelled
+  error       String?
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_emails")
+}
+
+// Email Event Model
+model EmailEvent {
+  id          String   @id @default(cuid())
+  contactId   String
+  campaignId  String?
+  emailId     String?  // Reference to sent email
+  type        String   // sent, delivered, opened, clicked, bounced, complained, unsubscribed
+  data        String?  // JSON event data
+  timestamp   DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  location    String?
+
+  // Relations
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("email_events")
+}
+
+// Template Usage Statistics
+model TemplateUsage {
+  id          String   @id @default(cuid())
+  templateId  String
+  usedBy      String?  // User ID who used the template
+  context     String?  // campaign, sequence, manual
+  timestamp   DateTime @default(now())
+
+  // Relations
+  template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("template_usage")
+}
+
+// A/B Test Model
+model ABTest {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   @default("template") // template, subject, send_time
+  status      String   @default("draft") // draft, running, completed, paused
+  templateAId String?
+  templateBId String?
+  splitRatio  Float    @default(0.5) // 0.5 = 50/50 split
+  metric      String   @default("open_rate") // open_rate, click_rate, conversion_rate
+  startedAt   DateTime?
+  endedAt     DateTime?
+  winnerId    String?  // ID of winning variant
+  confidence  Float?   // Statistical confidence level
+  results     String?  // JSON results data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  templateA   EmailTemplate? @relation(fields: [templateAId], references: [id], name: "TemplateA")
+  templateB   EmailTemplate? @relation(fields: [templateBId], references: [id], name: "TemplateB")
+
+  @@map("ab_tests")
+}
+
+// Campaign Analytics Model
+model CampaignAnalytics {
+  id          String   @id @default(cuid())
+  campaignId  String
+  date        DateTime @default(now())
+  sent        Int      @default(0)
+  delivered   Int      @default(0)
+  opened      Int      @default(0)
+  clicked     Int      @default(0)
+  bounced     Int      @default(0)
+  unsubscribed Int     @default(0)
+  complained  Int      @default(0)
+  revenue     Float?   @default(0)
+  conversions Int      @default(0)
+
+  // Relations
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, date])
+  @@map("campaign_analytics")
+}
+
+// Enhanced Email Tracking Models
+model EmailOpen {
+  id          String   @id @default(cuid())
+  emailEventId String?
+  campaignId  String?
+  contactId   String
+  emailId     String?  // Reference to specific email sent
+  ipAddress   String?
+  userAgent   String?
+  location    String?  // Geolocation data
+  device      String?  // mobile, desktop, tablet
+  browser     String?
+  os          String?
+  timestamp   DateTime @default(now())
+  isUnique    Boolean  @default(true) // First open vs repeat opens
+  
+  // Relations
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  @@map("email_opens")
+}
+
+model EmailClick {
+  id          String   @id @default(cuid())
+  emailEventId String?
+  campaignId  String?
+  contactId   String
+  emailId     String?  // Reference to specific email sent
+  linkUrl     String   // The clicked URL
+  linkText    String?  // Text of the clicked link
+  linkPosition String? // Position in email (header, body, footer)
+  ipAddress   String?
+  userAgent   String?
+  location    String?  // Geolocation data
+  device      String?  // mobile, desktop, tablet
+  browser     String?
+  os          String?
+  timestamp   DateTime @default(now())
+  isUnique    Boolean  @default(true) // First click vs repeat clicks
+  
+  // Relations
+  contact     Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  @@map("email_clicks")
+}
+
+// Social Media Integration Models
+model SocialPlatform {
+  id          String   @id @default(cuid())
+  name        String   @unique // facebook, twitter, linkedin, instagram, etc.
+  displayName String
+  apiKey      String?
+  apiSecret   String?
+  accessToken String?
+  refreshToken String?
+  isActive    Boolean  @default(true)
+  settings    String?  // JSON platform-specific settings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  shares      SocialShare[]
+  analytics   SocialAnalytics[]
+  
+  @@map("social_platforms")
+}
+
+model SocialShare {
+  id          String   @id @default(cuid())
+  platformId  String
+  campaignId  String?
+  contactId   String?
+  emailId     String?  // Reference to email that was shared
+  shareUrl    String   // The URL that was shared
+  shareText   String?  // Text accompanying the share
+  shareType   String   @default("manual") // manual, auto, scheduled
+  postId      String?  // Platform-specific post ID
+  status      String   @default("pending") // pending, posted, failed
+  engagement  String?  // JSON engagement metrics from platform
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  platform    SocialPlatform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  contact     Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  clicks      SocialClick[]
+  
+  @@map("social_shares")
+}
+
+model SocialClick {
+  id          String   @id @default(cuid())
+  shareId     String
+  ipAddress   String?
+  userAgent   String?
+  location    String?  // Geolocation data
+  device      String?  // mobile, desktop, tablet
+  browser     String?
+  os          String?
+  referrer    String?  // Social platform referrer
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  share       SocialShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  
+  @@map("social_clicks")
+}
+
+model SocialAnalytics {
+  id          String   @id @default(cuid())
+  platformId  String
+  campaignId  String?
+  date        DateTime @default(now())
+  shares      Int      @default(0)
+  clicks      Int      @default(0)
+  likes       Int      @default(0)
+  comments    Int      @default(0)
+  reposts     Int      @default(0)
+  reach       Int      @default(0)
+  impressions Int      @default(0)
+  engagement  Float    @default(0) // Engagement rate percentage
+  
+  // Relations
+  platform    SocialPlatform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  
+  @@unique([platformId, campaignId, date])
+  @@map("social_analytics")
+}
+
+// Link Tracking Model
+model TrackedLink {
+  id          String   @id @default(cuid())
+  originalUrl String
+  shortUrl    String   @unique
+  trackingCode String  @unique
+  campaignId  String?
+  emailId     String?
+  title       String?
+  description String?
+  isActive    Boolean  @default(true)
+  clickCount  Int      @default(0)
+  uniqueClickCount Int @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  clicks      LinkClick[]
+  
+  @@map("tracked_links")
+}
+
+model LinkClick {
+  id          String   @id @default(cuid())
+  linkId      String
+  contactId   String?
+  ipAddress   String?
+  userAgent   String?
+  location    String?  // Geolocation data
+  device      String?  // mobile, desktop, tablet
+  browser     String?
+  os          String?
+  referrer    String?
+  timestamp   DateTime @default(now())
+  isUnique    Boolean  @default(true)
+  
+  // Relations
+  link        TrackedLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  contact     Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  
+  @@map("link_clicks")
+}
+
+// Content Ideas Models
+model ContentIdea {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  content     String?  // Full content/body
+  category    String   @default("general") // social-media, blog, email, video, etc.
+  platform    String?  // instagram, twitter, linkedin, tiktok, etc.
+  tags        String?  // JSON array of tags as string
+  status      String   @default("draft") // draft, published, archived
+  priority    String   @default("medium") // low, medium, high
+  aiGenerated Boolean  @default(false)
+  aiPrompt    String?  // Original AI prompt used
+  aiModel     String?  // AI model used (gpt-4, claude, etc.)
+  userId      String?  // User who created/owns this idea
+  isPublic    Boolean  @default(false)
+  isFavorite  Boolean  @default(false)
+  viewCount   Int      @default(0)
+  likeCount   Int      @default(0)
+  shareCount  Int      @default(0)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  analytics   ContentIdeaAnalytics[]
+  
+  @@map("content_ideas")
+}
+
+model ContentIdeaAnalytics {
+  id        String   @id @default(cuid())
+  ideaId    String
+  event     String   // viewed, liked, shared, copied, generated
+  metadata  String?  // JSON data for additional info
+  ipAddress String?
+  userAgent String?
+  userId    String?
+  timestamp DateTime @default(now())
+  
+  // Relations
+  idea      ContentIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("content_idea_analytics")
+}
+
+// User Access Control Models
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  firstName   String
+  lastName    String
+  password    String
+  phone       String?
+  company     String?
+  role        String   @default("USER") // ADMIN, USER
+  permissions String?  // JSON array of specific permissions
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  paymentMethod String? // JSON object for payment details
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  sessions    UserSession[]
+  activities  UserActivity[]
+  contentIdeas ContentIdea[]
+  contentIdeaAnalytics ContentIdeaAnalytics[]
+
+  analystNotes AnalystNote[]
+  preferences UserPreferences?
+  subscription UserSubscription?
+  restrictions UserRestriction[]
+  
+  @@map("users")
+}
+
+model UserPreferences {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  theme        String   @default("light") // light, dark, system
+  currency     String   @default("PKR")
+  timezone     String   @default("GMT+5 (PKT)")
+  notifications Boolean @default(true)
+  emailTracking Boolean @default(false)
+  language     String   @default("en")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_preferences")
+}
+
+model UserSession {
+  id          String   @id @default(cuid())
+  userId      String
+  token       String   @unique
+  ipAddress   String?
+  userAgent   String?
+  expiresAt   DateTime
+  isActive    Boolean  @default(true)
+  loggedOutAt DateTime?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_sessions")
+}
+
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // login, logout, view_campaign, export_data, etc.
+  details     String?  // Description of the action
+  resource    String?  // What was accessed (campaign_id, contact_id, etc.)
+  metadata    String?  // JSON additional data
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  
+  @@map("user_activities")
+}
+
+model UserSubscription {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  plan        String   // "7_days", "30_days", "365_days"
+  status      String   @default("ACTIVE") // ACTIVE, EXPIRED, SUSPENDED
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  autoRenew   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("user_subscriptions")
+}
+
+model UserRestriction {
+  id          String   @id @default(cuid())
+  userId      String
+  pageRoute   String   // e.g., "/dashboard", "/leads", "/proposals"
+  isBlocked   Boolean  @default(true)
+  reason      String?  // Optional reason for restriction
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, pageRoute])
+  @@map("user_restrictions")
+}
+
+
+
+
+
+// Invoice and Payment Models
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  clientName      String
+  clientEmail     String
+  clientAddress   String?
+  clientPhone     String?
+  currency        String   @default("USD")
+  dueDate         String
+  description     String?
+  terms           String?
+  subtotal        Float    @default(0)
+  taxAmount       Float    @default(0)
+  totalAmount     Float    @default(0)
+  taxRate         String   @default("0")
+  status          String   @default("draft") // draft, sent, paid, overdue, cancelled
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  items           InvoiceItem[]
+  payments        Payment[]
+  emailLogs       EmailLog[]
+  
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Int      @default(1)
+  rate        Float    @default(0)
+  amount      Float    @default(0)
+  taxRate     Float    @default(0)
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@map("invoice_items")
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  invoiceId     String?
+  amount        Float
+  currency      String   @default("USD")
+  paymentMethod String   // card, bank_transfer, paypal, etc.
+  status        String   @default("pending") // pending, completed, failed, refunded
+  transactionId String?
+  cardLast4     String?
+  cardBrand     String?
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  @@map("payments")
+}
+
+// Email Management Models
+model EmailLog {
+  id              String   @id @default(cuid())
+  invoiceId       String?
+  recipientEmail  String
+  subject         String
+  status          String   @default("sent") // sent, failed, pending
+  emailType       String   @default("invoice") // invoice, general, marketing
+  sentAt          DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  invoice         Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  @@map("email_logs")
+}
+
+// Payment Platform API Keys Model
+model PaymentPlatformConfig {
+  id            String   @id @default(cuid())
+  platform      String   @unique // jazzcash, payoneer, nayapay, easypaisa, meezab_bank, google_pay, bank_account
+  displayName   String   // Display name for the platform
+  apiKey        String?  // Encrypted API key
+  secretKey     String?  // Encrypted secret key
+  merchantId    String?  // Merchant ID if required
+  isActive      Boolean  @default(false)
+  isConnected   Boolean  @default(false)
+  lastTested    DateTime?
+  connectionStatus String @default("not_configured") // not_configured, connected, failed, testing
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("payment_platform_configs")
+}
+
+// Analyst Notes Model
+model AnalystNote {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  reportType  String?  // overview, sales, marketing, financial, engagement, pipeline
+  tags        String?  // comma-separated tags
+  priority    String   @default("medium") // low, medium, high, critical
+  isPublic    Boolean  @default(false)
+  authorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@map("analyst_notes")
+}
+
+// Team Management Models
+model TeamMember {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String   @unique
+  phone       String?
+  department  String
+  role        String
+  position    String?
+  photoUrl    String?
+  status      String   @default("active") // active, inactive, on_leave
+  hireDate    DateTime?
+  salary      Float?
+  skills      String?  // JSON string of skills array
+  bio         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  assignments TeamAssignment[]
+  
+  @@map("team_members")
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  status       String   @default("planning") // planning, active, on-hold, completed, cancelled
+  priority     String   @default("medium") // low, medium, high, urgent
+  startDate    DateTime?
+  endDate      DateTime?
+  deadline     DateTime?
+  budget       Float?
+  progress     Int      @default(0) // 0-100 percentage
+  clientName   String?
+  clientEmail  String?
+  tags         String?  // JSON string of tags array
+  requirements String?
+  deliverables String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  assignments  TeamAssignment[]
+  
+  @@map("projects")
+}
+
+model TeamAssignment {
+  id           String   @id @default(cuid())
+  teamMemberId String
+  projectId    String
+  role         String   // role in this specific project
+  status       String   @default("assigned") // assigned, in-progress, completed, paused
+  assignedAt   DateTime @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  hoursAllocated Float?
+  hoursWorked    Float   @default(0)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@unique([teamMemberId, projectId])
+  @@map("team_assignments")
+}

@@ -15,11 +15,6 @@ export default function EmailAutomationPage() {
       href: "/email/composer",
     },
     {
-      title: "🔁 Automated Sequences",
-      desc: "Build automated workflows to send emails based on triggers.",
-      href: "/email/sequences",
-    },
-    {
       title: "⏰ Follow-up Scheduler",
       desc: "Schedule personalized follow-ups to stay connected with leads.",
       href: "/email/followups",

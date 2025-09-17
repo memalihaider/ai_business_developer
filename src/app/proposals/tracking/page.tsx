@@ -1,158 +1,490 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Loader2, Search, Filter, Download, Eye, TrendingUp, TrendingDown, Calendar, DollarSign, FileText, Users, BarChart3, PieChart, Activity, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { Toaster } from "sonner";
 import jsPDF from "jspdf";
+import { useRealTimeProposals } from "@/hooks/useRealTimeProposals";
 
 type Proposal = {
   id: string;
-  client: string;
   title: string;
-  date: string;
-  status: "Accepted" | "Rejected" | "Pending";
-  value?: number;
+  clientName: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  description: string;
+  timeline?: string;
+  budget?: string;
+  type: string;
+  status: "draft" | "sent" | "accepted" | "rejected";
+  content?: string;
+  sections?: string;
+  templateId?: string;
+  leadId?: string;
+  isDraft: boolean;
+  sentAt?: string;
+  viewedAt?: string;
+  acceptedAt?: string;
+  rejectedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
-const proposals: Proposal[] = [
-  { id: "P-001", client: "Qudsia", title: "Website Redesign", date: "Aug 10, 2025", status: "Accepted", value: 1500 },
-  { id: "P-002", client: "Ali",    title: "Logo Design",       date: "Aug 12, 2025", status: "Rejected", value: 900 },
-  { id: "P-003", client: "Sara",   title: "Marketing Campaign", date: "Aug 15, 2025", status: "Pending",  value: 1200 },
-];
+type AnalyticsSummary = {
+  totalProposals: number;
+  acceptedProposals: number;
+  rejectedProposals: number;
+  pendingProposals: number;
+  conversionRate: number;
+  totalValue: number;
+  recentActivity: any[];
+  monthlyTrends: any[];
+};
 
-function BadgeForStatus({ status }: { status: Proposal["status"] }) {
-  if (status === "Accepted") {
-    return <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">{status}</Badge>;
-  }
-  if (status === "Rejected") {
-    return <Badge variant="destructive">{status}</Badge>;
-  }
-  return <Badge variant="secondary">{status}</Badge>; // Pending
+function StatusBadge({ status }: { status: Proposal["status"] }) {
+  const variants = {
+    accepted: "bg-green-100 text-green-800 border-green-200",
+    rejected: "bg-red-100 text-red-800 border-red-200",
+    sent: "bg-blue-100 text-blue-800 border-blue-200",
+    draft: "bg-gray-100 text-gray-800 border-gray-200"
+  };
+  
+  return (
+    <Badge className={`${variants[status]} capitalize font-medium`}>
+      {status}
+    </Badge>
+  );
 }
 
-export default function ProposalTrackingPage() {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Proposal["status"] | "all">("all");
-  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
-
-  const filteredProposals = proposals.filter((p) => {
-    const matchesSearch =
-      p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.client.toLowerCase().includes(search.toLowerCase()) ||
-      p.id.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || p.status === filter;
-    return matchesSearch && matchesFilter;
-  });
-
-  const total = proposals.length;
-  const accepted = proposals.filter((p) => p.status === "Accepted").length;
-  const rejected = proposals.filter((p) => p.status === "Rejected").length;
-  const pending  = proposals.filter((p) => p.status === "Pending").length;
-  const conversion = total ? Math.round((accepted / total) * 100) : 0;
-  const totalValue = proposals.reduce((sum, p) => sum + (p.value ?? 0), 0);
-
-  const downloadReport = () => {
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("Proposal Report", 14, 20);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    proposals.forEach((p, idx) => {
-      doc.text(
-        `${p.id} | ${p.client} | ${p.title} | ${p.date} | ${p.status} | $${p.value ?? "N/A"}`,
-        14,
-        40 + idx * 10
-      );
-    });
-
-    doc.text(`\nSummary:`, 14, 50 + proposals.length * 10);
-    doc.text(`Total Proposals: ${total}`, 14, 60 + proposals.length * 10);
-    doc.text(`Accepted: ${accepted}`, 14, 70 + proposals.length * 10);
-    doc.text(`Rejected: ${rejected}`, 14, 80 + proposals.length * 10);
-    doc.text(`Pending: ${pending}`, 14, 90 + proposals.length * 10);
-    doc.text(`Conversion Rate: ${conversion}%`, 14, 100 + proposals.length * 10);
-    doc.text(`Total Value Sent: $${totalValue.toLocaleString()}`, 14, 110 + proposals.length * 10);
-
-    doc.save("proposal-report.pdf");
+function MetricCard({ title, value, change, icon: Icon, trend }: {
+  title: string;
+  value: string | number;
+  change?: string;
+  icon: any;
+  trend?: "up" | "down" | "neutral";
+}) {
+  const trendColors = {
+    up: "text-green-600",
+    down: "text-red-600",
+    neutral: "text-gray-600"
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FAF9] p-6 md:p-10">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Proposal Tracking & Analytics</h1>
-            <p className="text-sm text-gray-500">Monitor proposal status and analyze performance</p>
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
+            {change && (
+              <div className={`flex items-center text-sm ${trendColors[trend || 'neutral']}`}>
+                {trend === 'up' && <TrendingUp className="w-4 h-4 mr-1" />}
+                {trend === 'down' && <TrendingDown className="w-4 h-4 mr-1" />}
+                {change}
+              </div>
+            )}
           </div>
-          <Button className="rounded-xl text-white" style={{ backgroundColor: "#7A8063" }} onClick={downloadReport}>
-            Download Report
-          </Button>
+          <div className="p-3 bg-gray-50 rounded-full">
+            <Icon className="w-6 h-6 text-gray-600" />
+          </div>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-        {/* Search & Filter */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <Input
-            placeholder="Search proposals by ID, client, or title..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-1/2"
+function SimpleChart({ data, type = "bar" }: { data: any[]; type?: "bar" | "line" }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-32 flex items-center justify-center text-gray-500">
+        <BarChart3 className="w-8 h-8 mr-2" />
+        No data available
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...data.map(d => d.value));
+  
+  return (
+    <div className="space-y-3">
+      {data.map((item, index) => (
+        <div key={index} className="space-y-1">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">{item.label}</span>
+            <span className="font-medium">{item.value}</span>
+          </div>
+          <Progress 
+            value={(item.value / maxValue) * 100} 
+            className="h-2"
           />
-          <Select onValueChange={(val) => setFilter(val as Proposal["status"] | "all")} defaultValue="all">
-            <SelectTrigger className="w-full md:w-48">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="Accepted">Accepted</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function ProposalTrackingPage() {
+  const { proposals, analytics, loading, error, lastUpdated, refreshData } = useRealTimeProposals();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [sortBy, setSortBy] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Filter and sort proposals
+  const filteredProposals = proposals
+    .filter((p) => {
+      const matchesSearch = 
+        p.title.toLowerCase().includes(search.toLowerCase()) ||
+        p.clientName.toLowerCase().includes(search.toLowerCase()) ||
+        p.id.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+      const matchesType = typeFilter === "all" || p.type === typeFilter;
+      return matchesSearch && matchesStatus && matchesType;
+    })
+    .sort((a, b) => {
+      const aValue = a[sortBy as keyof Proposal] || "";
+      const bValue = b[sortBy as keyof Proposal] || "";
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+
+  // Calculate metrics
+  const totalProposals = proposals.length;
+  const acceptedProposals = proposals.filter(p => p.status === "accepted").length;
+  const rejectedProposals = proposals.filter(p => p.status === "rejected").length;
+  const sentProposals = proposals.filter(p => p.status === "sent").length;
+  const draftProposals = proposals.filter(p => p.status === "draft").length;
+  const conversionRate = totalProposals > 0 ? Math.round((acceptedProposals / totalProposals) * 100) : 0;
+
+  // Generate chart data
+  const statusChartData = [
+    { label: "Accepted", value: acceptedProposals },
+    { label: "Sent", value: sentProposals },
+    { label: "Draft", value: draftProposals },
+    { label: "Rejected", value: rejectedProposals }
+  ];
+
+  const typeChartData = proposals.reduce((acc, p) => {
+    const existing = acc.find(item => item.label === p.type);
+    if (existing) {
+      existing.value++;
+    } else {
+      acc.push({ label: p.type, value: 1 });
+    }
+    return acc;
+  }, [] as { label: string; value: number }[]);
+
+  // Export functions
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Proposal Tracking Report", 14, 20);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(12);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 35);
+    
+    // Summary
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary:", 14, 50);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Proposals: ${totalProposals}`, 14, 60);
+    doc.text(`Accepted: ${acceptedProposals}`, 14, 70);
+    doc.text(`Sent: ${sentProposals}`, 14, 80);
+    doc.text(`Draft: ${draftProposals}`, 14, 90);
+    doc.text(`Rejected: ${rejectedProposals}`, 14, 100);
+    doc.text(`Conversion Rate: ${conversionRate}%`, 14, 110);
+    
+    // Proposals list
+    doc.setFont("helvetica", "bold");
+    doc.text("Proposals:", 14, 130);
+    doc.setFont("helvetica", "normal");
+    
+    filteredProposals.slice(0, 20).forEach((p, idx) => {
+      const y = 145 + idx * 10;
+      doc.text(`${p.id} | ${p.clientName} | ${p.title} | ${p.status}`, 14, y);
+    });
+    
+    doc.save("proposal-tracking-report.pdf");
+  };
+
+  const downloadCSV = () => {
+    const headers = ["ID", "Title", "Client", "Status", "Type", "Created", "Updated"];
+    const csvContent = [
+      headers.join(","),
+      ...filteredProposals.map(p => [
+        p.id,
+        `"${p.title}"`,
+        `"${p.clientName}"`,
+        p.status,
+        p.type,
+        new Date(p.createdAt).toLocaleDateString(),
+        new Date(p.updatedAt).toLocaleDateString()
+      ].join(","))
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "proposals.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-600" />
+          <p className="text-gray-600">Loading proposal data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold text-gray-900">Proposal Tracking & Analytics</h1>
+            <p className="text-gray-600">Monitor proposal performance and analyze conversion metrics</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              {isOnline ? (
+                <Wifi className="w-4 h-4 text-green-500" />
+              ) : (
+                <WifiOff className="w-4 h-4 text-red-500" />
+              )}
+              <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={refreshData} 
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+            <Select onValueChange={downloadPDF}>
+              <SelectTrigger className="w-40">
+                <Download className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Export" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pdf" onClick={downloadPDF}>PDF Report</SelectItem>
+                <SelectItem value="csv" onClick={downloadCSV}>CSV Data</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* Table */}
-        <Card className="rounded-2xl shadow-sm">
+        {/* Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <MetricCard
+            title="Total Proposals"
+            value={totalProposals}
+            icon={FileText}
+            change="+12% from last month"
+            trend="up"
+          />
+          <MetricCard
+            title="Accepted"
+            value={acceptedProposals}
+            icon={TrendingUp}
+            change={`${conversionRate}% conversion rate`}
+            trend="up"
+          />
+          <MetricCard
+            title="Pending"
+            value={sentProposals}
+            icon={Activity}
+            change="Awaiting response"
+            trend="neutral"
+          />
+          <MetricCard
+            title="Conversion Rate"
+            value={`${conversionRate}%`}
+            icon={BarChart3}
+            change="+5% from last month"
+            trend="up"
+          />
+        </div>
+
+        {/* Analytics Dashboard */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Proposal Status Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SimpleChart data={statusChartData} type="bar" />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PieChart className="w-5 h-5" />
+                Proposal Types
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SimpleChart data={typeChartData} type="bar" />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters and Search */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search proposals by title, client, or ID..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="service">Service</SelectItem>
+                    <SelectItem value="quotation">Quotation</SelectItem>
+                    <SelectItem value="contract">Contract</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+                  const [field, order] = value.split('-');
+                  setSortBy(field);
+                  setSortOrder(order as "asc" | "desc");
+                }}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="createdAt-desc">Newest First</SelectItem>
+                    <SelectItem value="createdAt-asc">Oldest First</SelectItem>
+                    <SelectItem value="title-asc">Title A-Z</SelectItem>
+                    <SelectItem value="title-desc">Title Z-A</SelectItem>
+                    <SelectItem value="clientName-asc">Client A-Z</SelectItem>
+                    <SelectItem value="status-asc">Status</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Proposals Table */}
+        <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold text-gray-800">Proposals</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Proposals ({filteredProposals.length})
+              </span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-hidden rounded-xl border border-gray-200">
-              <table className="w-full text-sm">
-                <thead className="bg-[#7A8063] text-white">
-                  <tr>
-                    <th className="p-3 text-left font-medium">Proposal ID</th>
-                    <th className="p-3 text-left font-medium">Client</th>
-                    <th className="p-3 text-left font-medium">Title</th>
-                    <th className="p-3 text-left font-medium">Date</th>
-                    <th className="p-3 text-left font-medium">Status</th>
-                    <th className="p-3 text-left font-medium">Actions</th>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">ID</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Title</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Client</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Type</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Created</th>
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white">
+                <tbody>
                   {filteredProposals.length > 0 ? (
-                    filteredProposals.map((p) => (
-                      <tr key={p.id} className="border-t hover:bg-gray-50">
-                        <td className="p-3">{p.id}</td>
-                        <td className="p-3">{p.client}</td>
-                        <td className="p-3">{p.title}</td>
-                        <td className="p-3">{p.date}</td>
-                        <td className="p-3">
-                          <BadgeForStatus status={p.status} />
+                    filteredProposals.map((proposal) => (
+                      <tr key={proposal.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-4 font-mono text-sm text-gray-600">{proposal.id.slice(0, 8)}</td>
+                        <td className="py-4 px-4">
+                          <div className="font-medium text-gray-900">{proposal.title}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-xs">{proposal.description}</div>
                         </td>
-                        <td className="p-3">
+                        <td className="py-4 px-4">
+                          <div className="font-medium text-gray-900">{proposal.clientName}</div>
+                          {proposal.clientEmail && (
+                            <div className="text-sm text-gray-500">{proposal.clientEmail}</div>
+                          )}
+                        </td>
+                        <td className="py-4 px-4">
+                          <Badge variant="outline" className="capitalize">{proposal.type}</Badge>
+                        </td>
+                        <td className="py-4 px-4">
+                          <StatusBadge status={proposal.status} />
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-600">
+                          {new Date(proposal.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-4 px-4">
                           <Button
                             size="sm"
-                            className="rounded-xl px-4 text-white"
-                            style={{ backgroundColor: "#7A8063" }}
-                            onClick={() => setSelectedProposal(p)}
+                            variant="outline"
+                            onClick={() => setSelectedProposal(proposal)}
+                            className="flex items-center gap-2"
                           >
+                            <Eye className="w-4 h-4" />
                             View
                           </Button>
                         </td>
@@ -160,8 +492,10 @@ export default function ProposalTrackingPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="p-4 text-center text-gray-500">
-                        No proposals found.
+                      <td colSpan={7} className="py-12 text-center text-gray-500">
+                        <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">No proposals found</p>
+                        <p className="text-sm">Try adjusting your search or filter criteria</p>
                       </td>
                     </tr>
                   )}
@@ -170,61 +504,150 @@ export default function ProposalTrackingPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Analytics */}
-        <Card className="rounded-2xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold text-gray-800">Analytics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-              <div className="p-4 bg-gray-100 rounded-xl">
-                <div className="text-xl font-semibold text-gray-800">{total}</div>
-                <div className="text-xs text-gray-600">Total Proposals</div>
-              </div>
-              <div className="p-4 bg-green-100 rounded-xl">
-                <div className="text-xl font-semibold text-green-700">{accepted}</div>
-                <div className="text-xs text-green-700">Accepted</div>
-              </div>
-              <div className="p-4 bg-red-100 rounded-xl">
-                <div className="text-xl font-semibold text-red-700">{rejected}</div>
-                <div className="text-xs text-red-700">Rejected</div>
-              </div>
-              <div className="p-4 bg-yellow-100 rounded-xl">
-                <div className="text-xl font-semibold text-yellow-700">{pending}</div>
-                <div className="text-xs text-yellow-700">Pending</div>
-              </div>
-              <div className="p-4 bg-[#E6E8DF] rounded-xl">
-                <div className="text-xl font-semibold text-[#2C2F25]">{conversion}%</div>
-                <div className="text-xs text-[#2C2F25]">Conversion</div>
-              </div>
-            </div>
-
-            <div className="mt-4 text-sm text-gray-600">
-              <span className="font-medium text-gray-800">Total Value Sent:</span> ${totalValue.toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Modal for proposal details */}
+      {/* Enhanced Proposal Details Modal */}
       <Dialog open={!!selectedProposal} onOpenChange={() => setSelectedProposal(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Proposal Details</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Proposal Details
+            </DialogTitle>
           </DialogHeader>
           {selectedProposal && (
-            <div className="space-y-3 text-sm text-gray-700">
-              <p><span className="font-medium">ID:</span> {selectedProposal.id}</p>
-              <p><span className="font-medium">Client:</span> {selectedProposal.client}</p>
-              <p><span className="font-medium">Title:</span> {selectedProposal.title}</p>
-              <p><span className="font-medium">Date:</span> {selectedProposal.date}</p>
-              <p><span className="font-medium">Status:</span> {selectedProposal.status}</p>
-              <p><span className="font-medium">Value:</span> ${selectedProposal.value ?? "N/A"}</p>
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Title</label>
+                    <p className="text-lg font-semibold text-gray-900">{selectedProposal.title}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Client</label>
+                    <p className="text-gray-900">{selectedProposal.clientName}</p>
+                    {selectedProposal.clientEmail && (
+                      <p className="text-sm text-gray-600">{selectedProposal.clientEmail}</p>
+                    )}
+                    {selectedProposal.clientPhone && (
+                      <p className="text-sm text-gray-600">{selectedProposal.clientPhone}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Status</label>
+                      <div className="mt-1">
+                        <StatusBadge status={selectedProposal.status} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Type</label>
+                      <div className="mt-1">
+                        <Badge variant="outline" className="capitalize">{selectedProposal.type}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Created</label>
+                    <p className="text-gray-900">{new Date(selectedProposal.createdAt).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Last Updated</label>
+                    <p className="text-gray-900">{new Date(selectedProposal.updatedAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-sm font-medium text-gray-700">Description</label>
+                <div className="mt-2 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-gray-900 whitespace-pre-wrap">{selectedProposal.description}</p>
+                </div>
+              </div>
+
+              {/* Timeline and Budget */}
+              {(selectedProposal.timeline || selectedProposal.budget) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {selectedProposal.timeline && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Timeline</label>
+                      <p className="text-gray-900 mt-1">{selectedProposal.timeline}</p>
+                    </div>
+                  )}
+                  {selectedProposal.budget && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Budget</label>
+                      <p className="text-gray-900 mt-1">{selectedProposal.budget}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Activity Timeline */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-3 block">Activity Timeline</label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Proposal Created</p>
+                      <p className="text-xs text-blue-700">{new Date(selectedProposal.createdAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  {selectedProposal.sentAt && (
+                    <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                      <div>
+                        <p className="text-sm font-medium text-yellow-900">Proposal Sent</p>
+                        <p className="text-xs text-yellow-700">{new Date(selectedProposal.sentAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedProposal.viewedAt && (
+                    <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <div>
+                        <p className="text-sm font-medium text-purple-900">Proposal Viewed</p>
+                        <p className="text-xs text-purple-700">{new Date(selectedProposal.viewedAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedProposal.acceptedAt && (
+                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div>
+                        <p className="text-sm font-medium text-green-900">Proposal Accepted</p>
+                        <p className="text-xs text-green-700">{new Date(selectedProposal.acceptedAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedProposal.rejectedAt && (
+                    <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <div>
+                        <p className="text-sm font-medium text-red-900">Proposal Rejected</p>
+                        <p className="text-xs text-red-700">{new Date(selectedProposal.rejectedAt).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
+       
+       {/* Toast Notifications */}
+       <Toaster 
+         position="top-right" 
+         expand={true}
+         richColors
+         closeButton
+       />
+     </div>
+   );
+ }

@@ -3,6 +3,7 @@
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   FileText,
   Mail,
   FolderKanban,
@@ -27,6 +28,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const pacifico = Pacifico({
   subsets: ['latin'],
@@ -36,9 +38,25 @@ const pacifico = Pacifico({
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' }, 
+ 
   { icon: Users, label: 'Leads', href: '/Lead' }, 
+  { icon: Users, label: 'Clients', href: '/clients' }, 
   
   { icon: FolderKanban, label: 'Portfolio & Case Studies', href: '/portfolio' }, 
+
+  { 
+    label: "Team Management", 
+    icon: UserCog, 
+    href: "/team-management",
+    subItems: [
+      { label: "Dashboard", href: "/team-management" },
+      { label: "Team Members", href: "/team-management/members" },
+      { label: "Add Team Member", href: "/team-management/add-member" },
+      { label: "Projects", href: "/team-management/projects" },
+      { label: "Add Project", href: "/team-management/add-project" },
+      { label: "Assignments", href: "/team-management/assignments" },
+    ]
+  },
 
   { 
     label: "Proposal & Quotation", 
@@ -57,9 +75,7 @@ const navItems = [
     href: "/email",
     subItems: [
       { label: "Email Composer", href: "/email/composer" },
-      { label: "Automated Sequences", href: "/email/sequences" },
-      { label: "Follow-up Scheduler", href: "/email/scheduler" },
-      { label: "Open & Click Tracking", href: "/email/tracking" },
+      { label: "Follow-up Scheduler", href: "/email/followups" },
     ] 
   },
 
@@ -68,15 +84,14 @@ const navItems = [
   icon: Calendar, 
   href: "/social-content-engine",
   subItems: [
-    { label: "Analytics", href: "/social-content-engine/analytics" },
     { label: "Content Ideas", href: "/social-content-engine/contentIdeas" },
-    { label: "Schedular", href: "/social-content-engine/scheduler" },
+    
     { label: "SEO SuggessionsS", href: "/social-content-engine/seoSuggestions" },
   ]
 }, 
   { icon: Kanban, label: 'CRM Pipeline', href: '/pipeline' }, 
   { icon: Globe, label: 'Opportunities', href: '/opportunities' }, 
-  { icon: Star, label: 'Reputation', href: '/reputation' }, 
+ 
   { icon: CreditCard, label: 'Payments & Invoicing', href: '/payments' }, 
   { icon: BarChart3, label: 'Reports & Insights', href: '/reports' }, 
   { icon: Settings, label: 'Settings', href: '/settings' }, 
@@ -89,6 +104,7 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   const isMenuItemActive = (href: string) => {
