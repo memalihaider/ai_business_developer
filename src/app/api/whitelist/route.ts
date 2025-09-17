@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { auth } from '@/lib/auth';
+import { verifyAuth } from '@/lib/auth';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
 
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const authResult = await verifyAuth(request);
+    if (!authResult.success || !authResult.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      userId: session.user.id,
+      userId: authResult.user.id,
     };
 
     if (type && (type === 'whitelist' || type === 'blacklist')) {
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const authResult = await verifyAuth(request);
+    if (!authResult.success || !authResult.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       where: {
         email: email.toLowerCase(),
         type,
-        userId: session.user.id,
+        userId: authResult.user.id,
       },
     });
 
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         email: email.toLowerCase(),
         type,
         reason: reason || null,
-        userId: session.user.id,
+        userId: authResult.user.id,
       },
     });
 
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const authResult = await verifyAuth(request);
+    if (!authResult.success || !authResult.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -147,7 +147,7 @@ export async function DELETE(request: NextRequest) {
     const existingEntry = await prisma.emailList.findFirst({
       where: {
         id,
-        userId: session.user.id,
+        userId: authResult.user.id,
       },
     });
 
