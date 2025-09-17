@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 
 // Payment method types - Updated for Pakistani payment methods
 type PaymentMethod = 'google_pay' | 'bank_transfer' | 'jazzcash' | 'payoneer' | 'nayapay' | 'meezab_bank' | 'easypaisa' | string; // string for custom methods

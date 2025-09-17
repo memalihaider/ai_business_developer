@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient()
+
 
 // Encryption key - in production, use a proper key management system
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-character-secret-key-here'

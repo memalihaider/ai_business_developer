@@ -3,7 +3,10 @@ import { PrismaClient } from '@prisma/client';
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 
 type ExportFormat = 'pdf' | 'csv' | 'excel';
 

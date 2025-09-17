@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createBackupService } from '@/lib/backup-service';
 import path from 'path';
 
+export const dynamic = 'force-static';
+
 // Initialize backup service with production-ready configuration
 const backupService = createBackupService({
+
   databasePath: path.join(process.cwd(), 'prisma', 'dev.db'),
   backupDirectory: path.join(process.cwd(), 'backups'),
   encryptionKey: process.env.BACKUP_ENCRYPTION_KEY || 'secure-backup-key-2024',

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 
 // GET /api/tracking/platforms - Get all social media platforms
 export async function GET(request: NextRequest) {

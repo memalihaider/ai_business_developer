@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { proposalOperations, templateOperations, analyticsOperations, prisma } from '@/lib/db';
 
+export const dynamic = 'force-static';
+
 export async function GET(request: NextRequest) {
+
   try {
     // Get analytics summary
     const analyticsSummary = await analyticsOperations.getAnalyticsSummary();

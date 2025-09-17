@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { proposalOperations, templateOperations, analyticsOperations } from '@/lib/db';
 
+export const dynamic = 'force-static';
+
 // OpenRouter API configuration
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
 // Fallback to Gemini if OpenRouter is not available

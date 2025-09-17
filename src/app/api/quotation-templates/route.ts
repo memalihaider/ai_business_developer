@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 
+export const dynamic = 'force-static';
+
 // Validation schema for quotation template creation
 const createTemplateSchema = z.object({
+
   name: z.string().min(1, 'Template name is required'),
   description: z.string().optional(),
   category: z.string().min(1, 'Category is required'),

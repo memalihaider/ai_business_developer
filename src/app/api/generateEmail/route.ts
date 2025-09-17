@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-static';
+
 // API configurations
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';

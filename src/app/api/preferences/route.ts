@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient()
+
 
 // GET /api/preferences - Get user preferences
 export async function GET(request: NextRequest) {

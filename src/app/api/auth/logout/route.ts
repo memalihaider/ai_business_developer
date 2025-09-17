@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // POST /api/auth/logout - User logout

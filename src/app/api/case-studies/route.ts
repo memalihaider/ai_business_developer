@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { caseStudyOperations } from '@/lib/db';
 
+export const dynamic = 'force-static';
+
 // GET /api/case-studies - Get all case studies or search case studies
 export async function GET(request: NextRequest) {
+
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');

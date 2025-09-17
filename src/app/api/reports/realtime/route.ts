@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 
 // GET /api/reports/realtime - Fetch real-time analytics data
 export async function GET(request: NextRequest) {

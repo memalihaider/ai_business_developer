@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { sendEmail } from '@/lib/email'
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient()
+
 
 // Send invoice email
 export async function POST(request: NextRequest) {

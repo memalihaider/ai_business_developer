@@ -3,8 +3,11 @@ import { leadOperations } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 import { sanitizeInput, validateRequired, checkRateLimit } from '@/lib/db-wrapper';
 
+export const dynamic = 'force-static';
+
 // GET /api/leads - Get all leads or search leads
 export async function GET(request: NextRequest) {
+
   try {
     // Authentication check
     const authResult = await verifyAuth(request);

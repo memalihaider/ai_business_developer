@@ -3,7 +3,10 @@ import { PrismaClient } from '@prisma/client'
 import nodemailer from 'nodemailer'
 import jsPDF from 'jspdf'
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient()
+
 
 // Configure email transporter (using Gmail as example)
 const createTransporter = () => {

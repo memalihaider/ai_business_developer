@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient()
+
 
 // PATCH - Update user preferences
 export async function PATCH(request: NextRequest) {

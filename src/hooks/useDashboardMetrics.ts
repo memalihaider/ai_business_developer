@@ -236,22 +236,26 @@ export function useDashboardActions() {
 
 // Hook for real-time status indicator
 export function useConnectionStatus() {
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(true); // Default to true for SSR
   const [lastSync, setLastSync] = useState<Date | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
 
-    // Check initial status
-    setIsOnline(navigator.onLine);
+      // Check initial status after component mounts (client-side only)
+      setIsOnline(navigator.onLine);
+    }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
     };
   }, []);
 

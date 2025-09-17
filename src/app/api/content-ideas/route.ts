@@ -3,7 +3,10 @@ import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Authentication middleware

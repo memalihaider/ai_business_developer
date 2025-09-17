@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { aiService } from '@/lib/ai-service';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 
 interface InvoiceItem {
   description: string;

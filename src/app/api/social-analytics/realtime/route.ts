@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getRealTimeMetrics, checkDatabaseHealth } from '@/lib/database/analytics-queries';
 import { cache, CacheKeys, CacheTTL } from '@/lib/cache/redis-cache';
+import { prisma } from '@/lib/db';
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-static';
+
 
 // Store active connections
 const connections = new Set<ReadableStreamDefaultController>();

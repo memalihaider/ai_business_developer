@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { clientOperations } from '@/lib/db';
 import { checkRateLimit } from '@/lib/db-wrapper';
 
+export const dynamic = 'force-static';
+
 // GET /api/clients - Get all clients or search clients
 export async function GET(request: NextRequest) {
   try {

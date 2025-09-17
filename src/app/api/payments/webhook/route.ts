@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 
 // POST /api/payments/webhook - Handle Pakistani payment method webhooks
 export async function POST(request: NextRequest) {

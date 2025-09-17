@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redirect } from 'next/navigation';
 
+export const dynamic = 'force-static';
+
 // GET /api/social-auth/callback - Handle OAuth callbacks from social media platforms
 export async function GET(request: NextRequest) {
+
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');

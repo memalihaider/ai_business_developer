@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { jsPDF } from 'jspdf';
 
+export const dynamic = 'force-static';
+
 const prisma = new PrismaClient();
+
 
 // POST /api/reports/export - Export reports in various formats
 export async function POST(request: NextRequest) {

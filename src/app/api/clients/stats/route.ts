@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clientOperations } from '@/lib/db';
 
+export const dynamic = 'force-static';
+
 // GET /api/clients/stats - Get real-time client statistics
 export async function GET(request: NextRequest) {
+
   try {
     const clients = await clientOperations.getAllClients();
     
