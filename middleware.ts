@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import jwt from 'jsonwebtoken'
-import { checkUserAccess } from '@/lib/restrictions'
+import { verify } from 'jsonwebtoken'
+import { checkUserAccess } from './src/lib/restrictions'
 
 // Define public routes that don't require authentication
 const publicRoutes = [
-  '/',
   '/login',
-  '/api/auth',
-  '/api/social-auth',
-  '/_next',
-  '/favicon.ico'
+  '/register',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/verify',
+  '/api/auth/logout',
+  '/',
+  '/about',
+  '/contact'
 ]
 
 // Define admin-only routes
@@ -19,20 +22,52 @@ const adminRoutes = [
   '/api/admin'
 ]
 
-// Define API routes that should be protected
+// Define protected API routes that need authentication
 const protectedApiRoutes = [
-  '/api/dashboard',
-  '/api/leads',
-  '/api/social-platforms',
+  '/api/contacts',
+  '/api/opportunities',
+  '/api/invoices',
+  '/api/proposals',
+  '/api/email',
   '/api/social-posts',
-  '/api/integrations',
-  '/api/scheduler',
-  '/api/tracking'
+  '/api/templates',
+  '/api/ai'
 ]
+
+// CSRF token validation for state-changing operations
+const validateCSRFToken = (request: NextRequest): boolean => {
+  const method = request.method
+  
+  // Only validate CSRF for state-changing methods
+  if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    return true
+  }
+
+  const csrfTokenFromHeader = request.headers.get('x-csrf-token')
+  const csrfTokenFromCookie = request.cookies.get('csrf-token')?.value
+
+  // Skip CSRF validation for auth endpoints (they have their own protection)
+  if (request.nextUrl.pathname.startsWith('/api/auth/')) {
+    return true
+  }
+
+  if (!csrfTokenFromHeader || !csrfTokenFromCookie) {
+    return false
+  }
+
+  return csrfTokenFromHeader === csrfTokenFromCookie
+}
+
+// Generate CSRF token using Web Crypto API (Edge Runtime compatible)
+const generateCSRFToken = (): string => {
+  const array = new Uint8Array(32)
+  crypto.getRandomValues(array)
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
+}
 
 async function validateToken(token: string) {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
+    const decoded = verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
     return decoded
   } catch (error) {
     return null
@@ -41,10 +76,38 @@ async function validateToken(token: string) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
-  // Allow public routes
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
+
+  // Skip middleware for static files and Next.js internals
+  if (pathname.startsWith('/_next') || pathname.startsWith('/static') || pathname.includes('.')) {
     return NextResponse.next()
+  }
+
+  // Allow public routes
+  if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+    const response = NextResponse.next()
+    
+    // Set CSRF token for public routes that might need it
+    if (!request.cookies.get('csrf-token')) {
+      const csrfToken = generateCSRFToken()
+      response.cookies.set('csrf-token', csrfToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 // 24 hours
+      })
+    }
+    
+    return response
+  }
+
+  // CSRF Protection for state-changing operations
+  if (!validateCSRFToken(request)) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { success: false, error: 'CSRF token validation failed' },
+        { status: 403 }
+      )
+    }
   }
 
   // Check for authentication token

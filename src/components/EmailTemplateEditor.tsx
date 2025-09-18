@@ -164,6 +164,26 @@ const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
     }
   };
 
+  // Sanitize HTML content to prevent XSS
+  const sanitizeHTML = (html: string): string => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Remove potentially dangerous elements and attributes
+    const scripts = tempDiv.querySelectorAll('script');
+    scripts.forEach(script => script.remove());
+    
+    const dangerousElements = tempDiv.querySelectorAll('[onclick], [onload], [onerror], [onmouseover]');
+    dangerousElements.forEach(el => {
+      el.removeAttribute('onclick');
+      el.removeAttribute('onload');
+      el.removeAttribute('onerror');
+      el.removeAttribute('onmouseover');
+    });
+    
+    return tempDiv.innerHTML;
+  };
+
   const insertTemplate = (templateType: string) => {
     let templateHtml = '';
     
@@ -193,8 +213,10 @@ const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
     }
     
     if (editorRef.current && templateHtml) {
-      editorRef.current.innerHTML += templateHtml;
-      setFormData(prev => ({ ...prev, htmlContent: editorRef.current?.innerHTML || '' }));
+      const sanitizedTemplate = sanitizeHTML(templateHtml);
+      editorRef.current.innerHTML += sanitizedTemplate;
+      const sanitizedContent = sanitizeHTML(editorRef.current.innerHTML);
+      setFormData(prev => ({ ...prev, htmlContent: sanitizedContent }));
     }
   };
 
@@ -502,7 +524,8 @@ const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
                   style={{ maxWidth: '600px', margin: '0 auto' }}
                   dangerouslySetInnerHTML={{ __html: formData.htmlContent }}
                   onInput={(e) => {
-                    setFormData(prev => ({ ...prev, htmlContent: e.currentTarget.innerHTML }));
+                    const sanitizedContent = sanitizeHTML(e.currentTarget.innerHTML);
+                    setFormData(prev => ({ ...prev, htmlContent: sanitizedContent }));
                   }}
                   onMouseUp={() => {
                     const selection = window.getSelection();

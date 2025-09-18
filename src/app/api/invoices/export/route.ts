@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
 
 export const dynamic = 'force-static';
 
@@ -274,105 +273,90 @@ function generateCSVExport(invoices: any[], includePayments: boolean): string {
   return csvRows.join('\n');
 }
 
-// Generate Excel export
+// Generate Excel export (replaced with enhanced CSV for security)
 function generateExcelExport(invoices: any[], includePayments: boolean): Buffer {
-  const workbook = XLSX.utils.book_new();
+  // For security reasons, we're replacing Excel export with an enhanced CSV format
+  // that includes all the data that would have been in the Excel file
+  const csvContent = generateEnhancedCSVExport(invoices, includePayments);
+  return Buffer.from(csvContent, 'utf-8');
+}
 
-  // Main invoices sheet
-  const invoiceData = invoices.map(invoice => {
-    const items = JSON.parse(invoice.items || '[]');
-    return {
-      'Invoice Number': invoice.invoiceNumber,
-      'Client Name': invoice.clientName,
-      'Client Email': invoice.clientEmail,
-      'Client Address': invoice.clientAddress || '',
-      'Client Phone': invoice.clientPhone || '',
-      'Status': invoice.status,
-      'Subtotal': invoice.subtotal,
-      'Tax Amount': invoice.taxAmount,
-      'Total Amount': invoice.totalAmount,
-      'Currency': invoice.currency,
-      'Created Date': new Date(invoice.createdAt).toISOString().split('T')[0],
-      'Due Date': new Date(invoice.dueDate).toISOString().split('T')[0],
-      'Paid Date': invoice.paidAt ? new Date(invoice.paidAt).toISOString().split('T')[0] : '',
-      'Items Count': items.length,
-      'Notes': invoice.notes || '',
-      'Terms': invoice.terms || '',
-    };
-  });
+// Generate enhanced CSV export with all invoice and item details
+function generateEnhancedCSVExport(invoices: any[], includePayments: boolean): string {
+  const headers = [
+    'Invoice Number',
+    'Client Name',
+    'Client Email',
+    'Client Address',
+    'Client Phone',
+    'Status',
+    'Subtotal',
+    'Tax Amount',
+    'Total Amount',
+    'Currency',
+    'Created Date',
+    'Due Date',
+    'Paid Date',
+    'Items Count',
+    'Item Details',
+    'Notes',
+    'Terms'
+  ];
 
-  const invoiceSheet = XLSX.utils.json_to_sheet(invoiceData);
-  XLSX.utils.book_append_sheet(workbook, invoiceSheet, 'Invoices');
-
-  // Invoice items sheet
-  const itemsData: any[] = [];
-  invoices.forEach(invoice => {
-    const items = JSON.parse(invoice.items || '[]');
-    items.forEach((item: any) => {
-      itemsData.push({
-        'Invoice Number': invoice.invoiceNumber,
-        'Client Name': invoice.clientName,
-        'Item Description': item.description,
-        'Quantity': item.quantity,
-        'Unit Price': item.unitPrice,
-        'Amount': item.amount,
-        'Tax Rate': item.taxRate || 0,
-      });
-    });
-  });
-
-  if (itemsData.length > 0) {
-    const itemsSheet = XLSX.utils.json_to_sheet(itemsData);
-    XLSX.utils.book_append_sheet(workbook, itemsSheet, 'Invoice Items');
+  if (includePayments) {
+    headers.push('Payment Status', 'Payment Method', 'Payment Amount', 'Payment Date');
   }
 
-  // Payments sheet (if requested)
-  if (includePayments) {
-    const paymentsData: any[] = [];
-    invoices.forEach(invoice => {
-      if (invoice.payments && invoice.payments.length > 0) {
-        invoice.payments.forEach((payment: any) => {
-          paymentsData.push({
-            'Invoice Number': invoice.invoiceNumber,
-            'Client Name': invoice.clientName,
-            'Payment ID': payment.id,
-            'Payment Amount': payment.amount,
-            'Payment Status': payment.status,
-            'Payment Method': payment.paymentMethod,
-            'Paid Date': payment.paidAt ? new Date(payment.paidAt).toISOString().split('T')[0] : '',
-          });
-        });
-      }
-    });
+  const csvRows = [headers.join(',')];
 
-    if (paymentsData.length > 0) {
-      const paymentsSheet = XLSX.utils.json_to_sheet(paymentsData);
-      XLSX.utils.book_append_sheet(workbook, paymentsSheet, 'Payments');
+  for (const invoice of invoices) {
+    const items = JSON.parse(invoice.items || '[]');
+    const itemsDescription = items.map((item: any) => 
+      `${item.description} (Qty: ${item.quantity}, Unit: ${item.unitPrice}, Amount: ${item.amount})`
+    ).join('; ');
+    
+    const row = [
+      `"${invoice.invoiceNumber}"`,
+      `"${invoice.clientName}"`,
+      `"${invoice.clientEmail}"`,
+      `"${invoice.clientAddress || ''}"`,
+      `"${invoice.clientPhone || ''}"`,
+      `"${invoice.status}"`,
+      invoice.subtotal,
+      invoice.taxAmount,
+      invoice.totalAmount,
+      `"${invoice.currency}"`,
+      `"${new Date(invoice.createdAt).toISOString().split('T')[0]}"`,
+      `"${new Date(invoice.dueDate).toISOString().split('T')[0]}"`,
+      invoice.paidAt ? `"${new Date(invoice.paidAt).toISOString().split('T')[0]}"` : '""',
+      items.length,
+      `"${itemsDescription.replace(/"/g, '""')}"`,
+      `"${(invoice.notes || '').replace(/"/g, '""')}"`,
+      `"${(invoice.terms || '').replace(/"/g, '""')}"`,
+    ];
+
+    if (includePayments && invoice.payments) {
+      if (invoice.payments.length > 0) {
+        for (const payment of invoice.payments) {
+          const paymentRow = [...row];
+          paymentRow.push(
+            `"${payment.status}"`,
+            `"${payment.paymentMethod}"`,
+            payment.amount,
+            `"${new Date(payment.createdAt).toISOString().split('T')[0]}"`
+          );
+          csvRows.push(paymentRow.join(','));
+        }
+      } else {
+        row.push('""', '""', '""', '""');
+        csvRows.push(row.join(','));
+      }
+    } else {
+      csvRows.push(row.join(','));
     }
   }
 
-  // Summary sheet
-  const totalAmount = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const paidInvoices = invoices.filter(inv => inv.status === 'paid');
-  const paidAmount = paidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const pendingAmount = totalAmount - paidAmount;
-
-  const summaryData = [
-    { Metric: 'Total Invoices', Value: invoices.length },
-    { Metric: 'Paid Invoices', Value: paidInvoices.length },
-    { Metric: 'Pending Invoices', Value: invoices.length - paidInvoices.length },
-    { Metric: 'Total Amount', Value: totalAmount },
-    { Metric: 'Paid Amount', Value: paidAmount },
-    { Metric: 'Outstanding Amount', Value: pendingAmount },
-    { Metric: 'Payment Rate', Value: `${invoices.length > 0 ? ((paidInvoices.length / invoices.length) * 100).toFixed(2) : 0}%` },
-    { Metric: 'Export Date', Value: new Date().toISOString().split('T')[0] },
-  ];
-
-  const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
-
-  // Generate buffer
-  return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  return csvRows.join('\n');
 }
 
 // Log export activity

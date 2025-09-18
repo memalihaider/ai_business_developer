@@ -177,8 +177,31 @@ export default function EmailComposer() {
     if (editorRef.current) setBody(editorRef.current.innerHTML);
   };
 
+  // Sanitize HTML content to prevent XSS
+  const sanitizeHTML = (html: string): string => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Remove potentially dangerous elements and attributes
+    const scripts = tempDiv.querySelectorAll('script');
+    scripts.forEach(script => script.remove());
+    
+    const dangerousElements = tempDiv.querySelectorAll('[onclick], [onload], [onerror], [onmouseover]');
+    dangerousElements.forEach(el => {
+      el.removeAttribute('onclick');
+      el.removeAttribute('onload');
+      el.removeAttribute('onerror');
+      el.removeAttribute('onmouseover');
+    });
+    
+    return tempDiv.innerHTML;
+  };
+
   const handleEditorInput = () => {
-    if (editorRef.current) setBody(editorRef.current.innerHTML);
+    if (editorRef.current) {
+      const sanitizedContent = sanitizeHTML(editorRef.current.innerHTML);
+      setBody(sanitizedContent);
+    }
   };
 
   const addKeyPoint = () => {

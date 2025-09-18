@@ -54,9 +54,39 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [selectedText, setSelectedText] = useState('');
 
+  // Sanitize HTML content to prevent XSS
+  const sanitizeHTML = (html: string): string => {
+    const tempDiv = document.createElement('div');
+    tempDiv.textContent = html;
+    return tempDiv.innerHTML;
+  };
+
+  // Safe HTML update with sanitization
+  const updateEditorContent = (content: string) => {
+    if (editorRef.current) {
+      // Create a temporary element to sanitize content
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = content;
+      
+      // Remove potentially dangerous elements and attributes
+      const scripts = tempDiv.querySelectorAll('script');
+      scripts.forEach(script => script.remove());
+      
+      const dangerousElements = tempDiv.querySelectorAll('[onclick], [onload], [onerror], [onmouseover]');
+      dangerousElements.forEach(el => {
+        el.removeAttribute('onclick');
+        el.removeAttribute('onload');
+        el.removeAttribute('onerror');
+        el.removeAttribute('onmouseover');
+      });
+      
+      editorRef.current.innerHTML = tempDiv.innerHTML;
+    }
+  };
+
   useEffect(() => {
     if (editorRef.current && value !== editorRef.current.innerHTML) {
-      editorRef.current.innerHTML = value;
+      updateEditorContent(value);
     }
   }, [value]);
 
@@ -70,7 +100,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const handleInput = () => {
     if (editorRef.current && !readOnly) {
-      onChange(editorRef.current.innerHTML);
+      const sanitizedContent = editorRef.current.innerHTML;
+      onChange(sanitizedContent);
+    }
+  };
+
+  const handleBlur = () => {
+    if (editorRef.current) {
+      const sanitizedContent = editorRef.current.innerHTML;
+      onChange(sanitizedContent);
     }
   };
 

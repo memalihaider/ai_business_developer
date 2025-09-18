@@ -103,13 +103,29 @@ export default function OpportunityList({ opportunities, onAnalyze }: Props) {
     // Enhanced PDF export simulation
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`
+      // Sanitize data before inserting into HTML
+      const sanitizeText = (text: string | null | undefined): string => {
+        if (!text) return 'N/A';
+        return text.toString().replace(/[<>&"']/g, (match) => {
+          const escapeMap: { [key: string]: string } = {
+            '<': '&lt;',
+            '>': '&gt;',
+            '&': '&amp;',
+            '"': '&quot;',
+            "'": '&#x27;'
+          };
+          return escapeMap[match];
+        });
+      };
+
+      const htmlContent = `
+        <!DOCTYPE html>
         <html>
           <head>
             <title>Opportunities Report</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; }
-              table { width: 100%; border-collapse: collapse; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
               th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
               th { background-color: #f2f2f2; }
               .header { text-align: center; margin-bottom: 20px; }
@@ -118,33 +134,37 @@ export default function OpportunityList({ opportunities, onAnalyze }: Props) {
           <body>
             <div class="header">
               <h1>Opportunities Report</h1>
-              <p>Generated on ${new Date().toLocaleDateString()}</p>
+              <p>Generated on: ${new Date().toLocaleDateString()}</p>
             </div>
             <table>
               <thead>
                 <tr>
                   <th>Title</th>
-                  <th>Industry</th>
+                  <th>Company</th>
                   <th>Value</th>
-                  <th>Priority</th>
+                  <th>Stage</th>
                   <th>Status</th>
+                  <th>Created</th>
                 </tr>
               </thead>
               <tbody>
                 ${filteredOpportunities.map(opp => `
                   <tr>
-                    <td>${opp.title}</td>
-                    <td>${opp.industry}</td>
-                    <td>${opp.value}</td>
-                    <td>${opp.priority || 'N/A'}</td>
-                    <td>${opp.status || 'N/A'}</td>
+                    <td>${sanitizeText(opp.title)}</td>
+                    <td>${sanitizeText(opp.company)}</td>
+                    <td>$${opp.value?.toLocaleString() || 'N/A'}</td>
+                    <td>${sanitizeText(opp.stage)}</td>
+                    <td>${sanitizeText(opp.status)}</td>
+                    <td>${new Date(opp.createdAt).toLocaleDateString()}</td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
           </body>
         </html>
-      `);
+      `;
+      
+      printWindow.document.write(htmlContent);
       printWindow.document.close();
       printWindow.print();
     }

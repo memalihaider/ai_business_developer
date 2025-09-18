@@ -1,17 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { proposalOperations, analyticsOperations } from '@/lib/db';
 
+// Helper function to get user ID from request headers (set by middleware)
+const getUserId = (request: NextRequest): string | null => {
+  return request.headers.get('x-user-id');
+};
+
+// Helper function to check if user owns the resource
+const checkResourceOwnership = async (userId: string, proposalId: string): Promise<boolean> => {
+  try {
+    const proposal = await proposalOperations.getProposalById(proposalId);
+    return proposal && proposal.userId === userId;
+  } catch (error) {
+    return false;
+  }
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const userId = getUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Validate ID format
+    if (!params.id || typeof params.id !== 'string' || params.id.length > 50) {
+      return NextResponse.json(
+        { error: 'Invalid proposal ID' },
+        { status: 400 }
+      );
+    }
+
     const proposal = await proposalOperations.getProposalById(params.id);
     
     if (!proposal) {
       return NextResponse.json(
         { error: 'Proposal not found' },
         { status: 404 }
+      );
+    }
+
+    // Check ownership unless it's a public proposal view
+    const isPublicView = request.nextUrl.searchParams.get('public') === 'true';
+    if (!isPublicView && proposal.userId !== userId) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
       );
     }
 
@@ -44,6 +84,31 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const userId = getUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Validate ID format
+    if (!params.id || typeof params.id !== 'string' || params.id.length > 50) {
+      return NextResponse.json(
+        { error: 'Invalid proposal ID' },
+        { status: 400 }
+      );
+    }
+
+    // Check ownership before allowing update
+    const hasAccess = await checkResourceOwnership(userId, params.id);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     
     const proposal = await proposalOperations.updateProposal(params.id, body);
